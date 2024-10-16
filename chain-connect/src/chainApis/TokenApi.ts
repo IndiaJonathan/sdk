@@ -86,7 +86,8 @@ export class TokenApi {
     return this.connection.submit<GalaChainResponse<TokenClassBody[]>, FetchTokenClassesDto>({
       method: "FetchTokenClasses",
       payload: dto,
-      url: this.chainCodeUrl
+      url: this.chainCodeUrl,
+      sign: false
     });
   }
 
@@ -97,7 +98,8 @@ export class TokenApi {
     >({
       method: "FetchTokenClassesWithPagination",
       payload: dto,
-      url: this.chainCodeUrl
+      url: this.chainCodeUrl,
+      sign: false
     });
   }
 
@@ -132,7 +134,7 @@ export class TokenApi {
     return this.connection.submit<GalaChainResponse<FetchAllowancesBody>, FetchAllowancesBody>({
       method: "FetchAllowances",
       payload: dto,
-      sign: true,
+      sign: false,
       url: this.chainCodeUrl
     });
   }
@@ -150,6 +152,7 @@ export class TokenApi {
     return this.connection.submit<GalaChainResponse<TokenBalance[]>, TokenBalance>({
       method: "FetchBalances",
       payload: dto,
+      sign: false,
       url: this.chainCodeUrl
     });
   }
@@ -161,7 +164,8 @@ export class TokenApi {
     >({
       method: "FetchBalancesWithTokenMetadata",
       payload: dto,
-      url: this.chainCodeUrl
+      url: this.chainCodeUrl,
+      sign: false
     });
   }
 
@@ -187,7 +191,8 @@ export class TokenApi {
     return this.connection.submit<GalaChainResponse<MintRequestDto[]>, MintRequestDto>({
       method: "FetchMintRequests",
       payload: dto,
-      url: this.chainCodeUrl
+      url: this.chainCodeUrl,
+      sign: false
     });
   }
 
@@ -294,7 +299,8 @@ export class TokenApi {
     return this.connection.submit<GalaChainResponse<TokenBurnBody[]>, FetchBurnsDto>({
       method: "FetchBurns",
       payload: dto,
-      url: this.chainCodeUrl
+      url: this.chainCodeUrl,
+      sign: false
     });
   }
 }

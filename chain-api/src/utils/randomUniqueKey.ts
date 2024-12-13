@@ -17,7 +17,9 @@ let crypto: typeof import("node:crypto") | undefined;
 
 Promise.resolve().then(async () => {
   try {
-    crypto = (await import("node:crypto")).default;
+    if (typeof globalThis !== "undefined" && typeof (globalThis as any).window === "undefined") {
+      crypto = (await import("node:crypto")).default;
+    }
   } catch (err) {
     console.error("Node.js crypto support is disabled!");
   }

@@ -14,13 +14,13 @@
  */
 import { jest } from "@jest/globals";
 
-const chalk = {
+const chalk: Record<string, jest.Mock> = {
   green: jest.fn((str: string) => str),
   yellow: jest.fn((str: string) => str),
   red: jest.fn((str: string) => str),
   blue: jest.fn((str: string) => str),
   gray: jest.fn((str: string) => str),
-  white: jest.fn((str: string) => str)
+  white: jest.fn((str: string) => str),
 };
 
 export default chalk;

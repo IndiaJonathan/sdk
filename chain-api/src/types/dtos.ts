@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Type, instanceToInstance, plainToInstance } from "class-transformer";
+import { Type, instanceToInstance, instanceToPlain, plainToInstance } from "class-transformer";
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -41,6 +41,19 @@ import { IsUserAlias, IsUserRef, StringEnumProperty } from "../validators";
 import { UserAlias } from "./UserAlias";
 import { UserRef } from "./UserRef";
 import { GalaChainResponse } from "./contract";
+
+export class MultiSignature {
+  @IsNotEmpty()
+  signature: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  signerAddress?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  signerPublicKey?: string;
+}
 
 type Base<T, BaseT> = T extends BaseT ? T : never;
 
@@ -161,6 +174,13 @@ export class ChainCallDTO {
   @IsNotEmpty()
   public signature?: string;
 
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => MultiSignature)
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  public signatures?: MultiSignature[];
+
   @JSONSchema({
     description:
       "Prefix for Metamask transaction signatures. " +
@@ -224,7 +244,8 @@ export class ChainCallDTO {
    * @returns string
    */
   serialize(): string {
-    return serialize(this);
+    const { signature, signatures, trace, ...plain } = instanceToPlain(this);
+    return serialize(plain);
   }
 
   /**
@@ -251,26 +272,52 @@ export class ChainCallDTO {
     return deserialize<T, ChainCallDTO>(constructor, object);
   }
 
-  public sign(privateKey: string, useDer = false): void {
+  public addSignature(
+    privateKey: string,
+    options?: { useDer?: boolean; signingScheme?: SigningScheme }
+  ): void {
+    const { useDer = false, signingScheme } = options ?? {};
+    const scheme = signingScheme ?? this.signing ?? SigningScheme.ETH;
+    this.signing = scheme;
+
+    let signature: string;
+    let signerPublicKey: string | undefined;
+    let signerAddress: string | undefined;
+
     if (useDer) {
-      if (this.signing === SigningScheme.TON) {
+      if (scheme === SigningScheme.TON) {
         throw new ValidationFailedError("TON signing scheme does not support DER signatures");
       } else {
-        if (this.signerPublicKey === undefined && this.signerAddress === undefined) {
-          this.signerPublicKey = signatures.getPublicKey(privateKey);
-        }
+        signerPublicKey = signatures.getPublicKey(privateKey);
       }
     }
 
-    if (this.signing === SigningScheme.TON) {
+    if (scheme === SigningScheme.TON) {
       const keyBuffer = Buffer.from(privateKey, "base64");
-      this.signature = signatures.ton.getSignature(this, keyBuffer, this.prefix).toString("base64");
+      signature = signatures.ton.getSignature(this, keyBuffer, this.prefix).toString("base64");
     } else {
       const keyBuffer = signatures.normalizePrivateKey(privateKey);
-      this.signature = useDer
+      signature = useDer
         ? signatures.getDERSignature(this, keyBuffer)
         : signatures.getSignature(this, keyBuffer);
     }
+
+    const ms: MultiSignature = { signature, signerAddress, signerPublicKey };
+    if (!this.signatures) {
+      this.signatures = [];
+    }
+    this.signatures.push(ms);
+
+    if (this.signatures.length === 1) {
+      this.signature = signature;
+      this.signerAddress = signerAddress;
+      this.signerPublicKey = signerPublicKey;
+    }
+  }
+
+  public sign(privateKey: string, useDer = false): void {
+    this.signatures = [];
+    this.addSignature(privateKey, { useDer });
   }
 
   /**
@@ -284,13 +331,39 @@ export class ChainCallDTO {
   }
 
   public isSignatureValid(publicKey: string): boolean {
+    const sig = this.signatures && this.signatures[0]?.signature ? this.signatures[0] : undefined;
+    const signature = sig?.signature ?? this.signature ?? "";
     if (this.signing === SigningScheme.TON) {
-      const signatureBuff = Buffer.from(this.signature ?? "", "base64");
+      const signatureBuff = Buffer.from(signature, "base64");
       const publicKeyBuff = Buffer.from(publicKey, "base64");
       return signatures.ton.isValidSignature(signatureBuff, this, publicKeyBuff, this.prefix);
     } else {
-      return signatures.isValid(this.signature ?? "", this, publicKey);
+      return signatures.isValid(signature, this, publicKey);
     }
+  }
+
+  public verifySignatures(publicKeys: string[]): boolean {
+    const sigs = this.signatures?.length
+      ? this.signatures
+      : this.signature
+        ? [{ signature: this.signature, signerAddress: this.signerAddress, signerPublicKey: this.signerPublicKey }]
+        : [];
+    if (!sigs.length) {
+      return false;
+    }
+    return sigs.every((s) => {
+      const keys = s.signerPublicKey ? [s.signerPublicKey] : publicKeys;
+      return keys.some((pk) =>
+        this.signing === SigningScheme.TON
+          ? signatures.ton.isValidSignature(
+              Buffer.from(s.signature ?? "", "base64"),
+              this,
+              Buffer.from(pk, "base64"),
+              this.prefix
+            )
+          : signatures.isValid(s.signature ?? "", this, pk)
+      );
+    });
   }
 }
 

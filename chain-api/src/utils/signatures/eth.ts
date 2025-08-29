@@ -350,6 +350,15 @@ function calculateKeccak256(data: Buffer): Buffer {
   return Buffer.from(keccak256.digest(data));
 }
 
+function signMessage(privateKey: Buffer, payload: Buffer): string {
+  return signSecp256k1(calculateKeccak256(payload), privateKey);
+}
+
+function verifySignature(signature: string, payload: Buffer, publicKey: Buffer): boolean {
+  const signatureObj = parseSecp256k1Signature(signature);
+  return isValidSecp256k1Signature(signatureObj, calculateKeccak256(payload), publicKey);
+}
+
 function getSignature(obj: object, privateKey: Buffer): string {
   const data = Buffer.from(getPayloadToSign(obj));
   return signSecp256k1(calculateKeccak256(data), privateKey);
@@ -449,6 +458,8 @@ export default {
   getPublicKey,
   getSignature,
   getDERSignature,
+  signMessage,
+  verifySignature,
   isChecksumedEthAddress,
   isLowercasedEthAddress,
   isValid,

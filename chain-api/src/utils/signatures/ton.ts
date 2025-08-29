@@ -98,6 +98,18 @@ function splitDataIntoCells(data: Buffer) {
 // To achieve it, we need to use safeSign and safeSignVerify functions instead of sign and signVerify.
 // They transform the payload accordingly.
 //
+function signMessage(privateKey: Buffer, payload: Buffer): Buffer {
+  const { safeSign } = importTonOrReject().ton;
+  const cell = splitDataIntoCells(payload);
+  return safeSign(cell, privateKey);
+}
+
+function verifySignature(signature: Buffer, payload: Buffer, publicKey: Buffer): boolean {
+  const { safeSignVerify } = importTonOrReject().ton;
+  const cell = splitDataIntoCells(payload);
+  return safeSignVerify(cell, signature, publicKey);
+}
+
 function getSignature(obj: object, privateKey: Buffer, seed: string | undefined): Buffer {
   const { safeSign } = importTonOrReject().ton;
   const data = getPayloadToSign(obj);
@@ -119,6 +131,8 @@ function isValidSignature(
 
 export default {
   genKeyPair,
+  signMessage,
+  verifySignature,
   getSignature,
   getTonAddress,
   isValidTonAddress,

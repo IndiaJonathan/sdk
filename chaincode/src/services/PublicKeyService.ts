@@ -33,6 +33,7 @@ import { Context } from "fabric-contract-api";
 
 import { GalaChainContext } from "../types";
 import {
+  DuplicateSignerError,
   PkInvalidSignatureError,
   PkMismatchError,
   PkMissingError,
@@ -264,14 +265,17 @@ export class PublicKeyService {
 
     const addresses: string[] = [];
     const publicKeys: (string | undefined)[] = [];
+    const seen = new Set<string>();
 
     for (const sig of dto.signatures) {
+      let address: string;
+      let pk: string | undefined;
+
       if (sig.signerAddress) {
-        addresses.push(sig.signerAddress);
-        publicKeys.push(undefined);
+        address = sig.signerAddress;
       } else if (sig.signerPublicKey) {
-        addresses.push(PublicKeyService.getUserAddress(sig.signerPublicKey, scheme));
-        publicKeys.push(sig.signerPublicKey);
+        address = PublicKeyService.getUserAddress(sig.signerPublicKey, scheme);
+        pk = sig.signerPublicKey;
       } else {
         let recovered: string | undefined;
         if (dto.signing !== SigningScheme.TON) {
@@ -282,12 +286,20 @@ export class PublicKeyService {
           }
         }
         if (recovered) {
-          addresses.push(PublicKeyService.getUserAddress(recovered, scheme));
-          publicKeys.push(signatures.getCompactBase64PublicKey(recovered));
+          address = PublicKeyService.getUserAddress(recovered, scheme);
+          pk = signatures.getCompactBase64PublicKey(recovered);
         } else {
           throw new MissingSignerError(sig.signature);
         }
       }
+
+      if (seen.has(address)) {
+        throw new DuplicateSignerError(address);
+      }
+      seen.add(address);
+
+      addresses.push(address);
+      publicKeys.push(pk);
     }
 
     const profilesArr = await PublicKeyService.getUserProfiles(ctx, addresses);

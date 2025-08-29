@@ -6,11 +6,15 @@ import {
   UserProfile,
   UserRole
 } from "@gala-chain/api";
+import { TestChaincode } from "@gala-chain/test";
 
 import { GalaContract } from "./GalaContract";
 import { EVALUATE, GalaTransaction } from "./GalaTransaction";
 import { MissingRoleError } from "./authorize";
 import { GalaChainContext } from "../types";
+import { PublicKeyContract } from "./PublicKeyContract";
+import { createRegisteredUser } from "./authenticate.testutils.spec";
+import { DuplicateSignerError } from "../services/PublicKeyError";
 
 class MultiSigTestContract extends GalaContract {
   constructor() {
@@ -71,6 +75,21 @@ describe("GalaTransaction multisig validation", () => {
 
     expect(response).toEqual(
       GalaChainResponse.Error(new MissingRoleError(user2.alias, user2.roles, [UserRole.CURATOR]))
+    );
+  });
+
+  it("rejects duplicate signatures", async () => {
+    const chaincode = new TestChaincode([PublicKeyContract, MultiSigTestContract]);
+    const user = await createRegisteredUser(chaincode);
+
+    const dto = new ChainCallDTO();
+    dto.sign(user.privateKey);
+    dto.addSignature(user.privateKey);
+
+    const response = await chaincode.invoke("MultiSigTestContract:NeedsTwo", dto);
+
+    expect(response).toEqual(
+      GalaChainResponse.Error(new DuplicateSignerError(user.ethAddress))
     );
   });
 });

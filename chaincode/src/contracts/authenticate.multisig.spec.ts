@@ -1,7 +1,7 @@
 import { ChainCallDTO } from "@gala-chain/api";
 import { TestChaincode, TestChaincodeStub } from "@gala-chain/test";
 
-import { PkInvalidSignatureError } from "../services/PublicKeyError";
+import { DuplicateSignerError, PkInvalidSignatureError } from "../services/PublicKeyError";
 import { GalaChainContext } from "../types";
 import { PublicKeyContract } from "./PublicKeyContract";
 import { authenticate } from "./authenticate";
@@ -46,5 +46,20 @@ describe("authenticate multisig", () => {
     ctx.setChaincodeStub(stub);
 
     await expect(authenticate(ctx, dto, 2)).rejects.toThrow(PkInvalidSignatureError);
+  });
+
+  it("rejects duplicate signatures", async () => {
+    const chaincode = new TestChaincode([PublicKeyContract]);
+    const user = await createRegisteredUser(chaincode);
+
+    const dto = new ChainCallDTO();
+    dto.sign(user.privateKey);
+    dto.addSignature(user.privateKey);
+
+    const ctx = new GalaChainContext({});
+    const stub = new TestChaincodeStub([], chaincode.state, {});
+    ctx.setChaincodeStub(stub);
+
+    await expect(authenticate(ctx, dto, 2)).rejects.toThrow(DuplicateSignerError);
   });
 });

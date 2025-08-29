@@ -55,7 +55,9 @@ export async function authenticate(
 
   const usersWithRoles = await PublicKeyService.ensureSignaturesValid(ctx, dto);
 
-  const callingUsers: UserProfile[] = usersWithRoles.map((u) => {
+  const uniqueUsers = Array.from(new Map(usersWithRoles.map((u) => [u.alias, u])).values());
+
+  const callingUsers: UserProfile[] = uniqueUsers.map((u) => {
     const p = new UserProfile();
     p.alias = u.alias;
     p.ethAddress = u.ethAddress;
@@ -67,7 +69,14 @@ export async function authenticate(
   ctx.callingUsers = callingUsers;
 
   const first = callingUsers[0];
-  return { ...first, users: callingUsers, minSignatures };
+  return {
+    alias: first.alias,
+    ethAddress: first.ethAddress,
+    tonAddress: first.tonAddress,
+    roles: first.roles ?? [],
+    users: callingUsers,
+    minSignatures
+  };
 }
 
 export async function ensureIsAuthenticatedBy(

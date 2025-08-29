@@ -93,13 +93,27 @@ const expectedTestDtoSchema = {
       description: "Quantity used in some place to support some feature. Number provided as a string.",
       type: "string"
     },
-    signerAddress: {
-      description: "Address of the user who signed the DTO. Typically Ethereum or TON address.",
+    signature: {
+      description: expect.stringContaining("Signature of the DTO signed with caller's private key"),
       minLength: 1,
       type: "string"
     },
-    signature: {
-      description: expect.stringContaining("Signature of the DTO signed with caller's private key"),
+    signatures: {
+      items: {
+        properties: {
+          signature: { minLength: 1, type: "string" },
+          signerAddress: { minLength: 1, type: "string" },
+          signerPublicKey: { minLength: 1, type: "string" }
+        },
+        required: ["signature"],
+        type: "object"
+      },
+      maxItems: 10,
+      minItems: 1,
+      type: "array"
+    },
+    signerAddress: {
+      description: "Address of the user who signed the DTO. Typically Ethereum or TON address.",
       minLength: 1,
       type: "string"
     },

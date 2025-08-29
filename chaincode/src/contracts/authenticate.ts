@@ -47,8 +47,13 @@ export async function authenticate(
   if (!dto || !dto.signatures || dto.signatures.length === 0) {
     if (dto?.signerAddress?.startsWith("service|")) {
       const chaincode = dto.signerAddress.slice(8);
-      ctx.callingUsers = [];
-      return { ...(await authenticateAsOriginChaincode(ctx, dto, chaincode)), users: [], minSignatures };
+      const authResult = await authenticateAsOriginChaincode(ctx, dto, chaincode);
+      const serviceProfile = new UserProfile();
+      serviceProfile.alias = authResult.alias;
+      serviceProfile.ethAddress = authResult.ethAddress;
+      serviceProfile.roles = authResult.roles;
+      ctx.callingUsers = [serviceProfile];
+      return { ...authResult, users: [serviceProfile], minSignatures };
     }
 
     throw new MissingSignatureError();

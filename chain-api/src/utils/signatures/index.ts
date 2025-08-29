@@ -14,6 +14,7 @@
  */
 import eth from "./eth";
 import { getPayloadToSign } from "./getPayloadToSign";
+import multiSig from "./multiSig";
 import ton from "./ton";
 
 export enum SigningScheme {
@@ -24,5 +25,6 @@ export enum SigningScheme {
 export default {
   ...eth,
   ton,
-  getPayloadToSign
+  getPayloadToSign,
+  multiSig
 } as const;

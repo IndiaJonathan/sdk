@@ -491,3 +491,11 @@ describe("eth addr validation", () => {
     expect(signatures.isChecksumedEthAddress(`1x${valid}`)).toEqual(false);
   });
 });
+
+it("should sign and verify raw payload", () => {
+  const { privateKey, publicKey } = signatures.genKeyPair();
+  const payload = Buffer.from("hello-eth");
+  const signature = signatures.signMessage(Buffer.from(privateKey, "hex"), payload);
+  const isValid = signatures.verifySignature(signature, payload, Buffer.from(publicKey, "hex"));
+  expect(isValid).toBeTruthy();
+});

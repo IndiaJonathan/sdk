@@ -88,3 +88,11 @@ it("should validate supported TON address", () => {
   expect(ton.isValidTonAddress(invalid)).toBeFalsy();
   expect(ton.isValidTonAddress(undef)).toBeFalsy();
 });
+
+it("should sign and verify raw payload", async () => {
+  const pair = await ton.genKeyPair();
+  const payload = Buffer.from("hello-ton");
+  const signature = ton.signMessage(pair.secretKey, payload);
+  const isValid = ton.verifySignature(signature, payload, pair.publicKey);
+  expect(isValid).toBeTruthy();
+});

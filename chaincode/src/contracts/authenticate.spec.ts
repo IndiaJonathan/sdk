@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { SubmitCallDTO } from "@gala-chain/api";
+import { ForbiddenError, SubmitCallDTO } from "@gala-chain/api";
 
 import { GalaChainContext } from "../types";
 import { authenticate } from "./authenticate";
@@ -58,6 +58,36 @@ describe("authenticate", () => {
 
     // Then
     await expect(result).rejects.toThrow(expectedErrorMessage);
+  });
+
+  it("should set empty calling users for service-authenticated call with required signatures", async () => {
+    // Given
+    const { ctx, chaincodeId } = mockedContext();
+
+    const dto = new SubmitCallDTO();
+    dto.signerAddress = `service|${chaincodeId}`;
+    dto.signature = undefined;
+
+    const required = 1;
+
+    // When
+    const authResult = await authenticate(ctx, dto, required);
+    ctx.callingUserData = authResult;
+
+    // Then
+    expect(ctx.callingUsers).toEqual([]);
+
+    const call = () => {
+      const users = ctx.callingUsers;
+      if (users.length < required) {
+        throw new ForbiddenError(
+          `Requires at least ${required} signatures but got ${users.length}.`,
+          { required, received: users.length }
+        );
+      }
+    };
+
+    expect(call).toThrow(ForbiddenError);
   });
 });
 

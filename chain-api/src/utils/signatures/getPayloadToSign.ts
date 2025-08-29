@@ -12,8 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { instanceToPlain } from "class-transformer";
-
 import { TypedDataEncoder } from "../../ethers/hash/typed-data";
 import serialize from "../serialize";
 
@@ -42,7 +40,5 @@ export function getPayloadToSign(obj: object): string {
     return getEIP712PayloadToSign(obj);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { signature, trace, ...plain } = instanceToPlain(obj);
-  return serialize(plain);
+  return serialize(obj, ["signature", "signatures", "trace"]);
 }

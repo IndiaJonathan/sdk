@@ -70,7 +70,9 @@ it("should parse TestDtoWithArray", async () => {
   expect(await getPlainOrError(TestDtoWithArray, valid)).toEqual({ playerIds: ["123"] });
   expect(await getPlainOrError(TestDtoWithArray, invalid1)).toEqual(failedArrayMatcher);
   expect(await getPlainOrError(TestDtoWithArray, invalid2)).toEqual(failedArrayMatcher);
-  expect(await getPlainOrError(TestDtoWithArray, invalid3)).toEqual("Unexpected end of JSON input");
+  expect(await getPlainOrError(TestDtoWithArray, invalid3)).toEqual(
+    "Unterminated string in JSON at position 16"
+  );
 });
 
 it("should parse TestDtoWithBigNumber", async () => {
@@ -132,7 +134,10 @@ describe("ChainCallDTO", () => {
 
     // Then
     expect(dto.signature).toEqual(expect.stringMatching(/.{50,}/));
+    expect(dto.signatures).toHaveLength(1);
+    expect(dto.signatures?.[0].signature).toEqual(dto.signature);
     expect(dto.isSignatureValid(publicKey)).toEqual(true);
+    expect(dto.verifySignatures([publicKey])).toEqual(true);
   });
 
   it("should sign and verify signature (edge case - shorter private key with missing trailing 0)", () => {
@@ -150,7 +155,8 @@ describe("ChainCallDTO", () => {
 
     // Then
     expect(dto.signature).toEqual(expect.stringMatching(/.{50,}/));
-    expect(dto.isSignatureValid(publicKey)).toEqual(true);
+    expect(dto.signatures).toHaveLength(1);
+    expect(dto.verifySignatures([publicKey])).toEqual(true);
   });
 
   it("should sign and fail to verify signature (invalid key)", () => {
@@ -165,6 +171,7 @@ describe("ChainCallDTO", () => {
 
     // Then
     expect(dto.isSignatureValid(invalid.publicKey)).toEqual(false);
+    expect(dto.verifySignatures([invalid.publicKey])).toEqual(false);
   });
 
   it("should sign and fail to verify signature (invalid payload)", () => {
@@ -179,6 +186,7 @@ describe("ChainCallDTO", () => {
 
     // Then
     expect(dto.isSignatureValid(publicKey)).toEqual(false);
+    expect(dto.verifySignatures([publicKey])).toEqual(false);
   });
 
   it("should sign and verify TON signature", async () => {
@@ -194,6 +202,21 @@ describe("ChainCallDTO", () => {
 
     // Then
     expect(dto.signature).toEqual(expect.stringMatching(/.{50,}/));
-    expect(dto.isSignatureValid(pair.publicKey.toString("base64"))).toEqual(true);
+    expect(dto.signatures).toHaveLength(1);
+    expect(dto.verifySignatures([pair.publicKey.toString("base64")])).toEqual(true);
+  });
+
+  it("should add multiple signatures and verify them", () => {
+    const k1 = genKeyPair();
+    const k2 = genKeyPair();
+    const dto = new TestDto();
+    dto.amounts = [new BigNumber("12.3")];
+
+    dto.sign(k1.privateKey);
+    dto.addSignature(k2.privateKey);
+
+    expect(dto.signatures).toHaveLength(2);
+    expect(dto.verifySignatures([k1.publicKey, k2.publicKey])).toEqual(true);
+    expect(dto.verifySignatures([k1.publicKey])).toEqual(false);
   });
 });

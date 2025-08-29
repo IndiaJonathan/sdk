@@ -61,6 +61,12 @@ it("should sort fields", () => {
   expect(serialized).toEqual('{"a":3,"b":[{"x":4,"y":5,"z":6},7],"c":8}');
 });
 
+it("should omit selected keys", () => {
+  const obj = { a: 1, b: 2, c: 3 };
+  const serialized = serialize(obj, ["b"]);
+  expect(serialized).toEqual('{"a":1,"c":3}');
+});
+
 // Known issue, we used `sort-keys-recursive` before, which does sort arrays
 it("should not sort arrays", () => {
   // Given

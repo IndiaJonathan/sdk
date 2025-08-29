@@ -103,6 +103,21 @@ const expectedTestDtoSchema = {
       minLength: 1,
       type: "string"
     },
+    signatures: {
+      description: "Array of signatures authorizing this DTO. Each entry may include signer details.",
+      items: {
+        properties: {
+          signature: { minLength: 1, type: "string" },
+          signerAddress: { minLength: 1, type: "string" },
+          signerPublicKey: { minLength: 1, type: "string" }
+        },
+        required: ["signature"],
+        type: "object",
+      },
+      maxItems: 10,
+      minItems: 1,
+      type: "array",
+    },
     signerPublicKey: {
       description: "Public key of the user who signed the DTO.",
       minLength: 1,

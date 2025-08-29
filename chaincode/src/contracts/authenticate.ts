@@ -17,6 +17,7 @@ import {
   ForbiddenError,
   PublicKey,
   SigningScheme,
+  UserProfile,
   UserProfileWithRoles,
   ValidationFailedError,
   signatures
@@ -101,7 +102,7 @@ export async function authenticate(
   ethAddress?: string;
   tonAddress?: string;
   roles: string[];
-  users: { alias?: string; ethAddress?: string; tonAddress?: string; roles: string[] }[];
+  users: UserProfile[];
   minSignatures: number;
 }> {
   if (!dto || !dto.signatures || dto.signatures.length === 0) {
@@ -191,12 +192,14 @@ export async function authenticate(
     }
   }
 
-  const callingUsers = users.map((u) => ({
-    alias: u.alias,
-    ethAddress: u.ethAddress,
-    tonAddress: u.tonAddress,
-    roles: u.roles
-  }));
+  const callingUsers: UserProfile[] = users.map((u) => {
+    const p = new UserProfile();
+    p.alias = u.alias;
+    p.ethAddress = u.ethAddress;
+    p.tonAddress = u.tonAddress;
+    p.roles = u.roles;
+    return p;
+  });
 
   ctx.callingUsers = callingUsers;
 

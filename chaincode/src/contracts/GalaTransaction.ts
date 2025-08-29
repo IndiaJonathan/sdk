@@ -24,6 +24,7 @@ import {
   Primitive,
   RuntimeError,
   SubmitCallDTO,
+  ForbiddenError,
   UserProfile,
   UserRole,
   generateResponseSchema,
@@ -38,7 +39,7 @@ import { GalaChainContext } from "../types";
 import { GalaContract } from "./GalaContract";
 import { updateApi } from "./GalaContractApi";
 import { authenticate } from "./authenticate";
-import { authorize } from "./authorize";
+import { authorize, MissingRoleError } from "./authorize";
 
 // All DTOs need to be registered in the application, including super classes. Otherwise, chaincode
 // containers will fail to start. Below we register just some base classes. Actual DTO classes are
@@ -90,6 +91,8 @@ export interface CommonTransactionOptions<In extends ChainCallDTO, Out> {
   sequence?: MethodAPI[];
   before?: GalaTransactionBeforeFn<In>;
   after?: GalaTransactionAfterFn<In, Out | Out[]>;
+  requiredSignatures?: number;
+  requiredRolesPerSigner?: string[];
 }
 
 export interface GalaTransactionOptions<In extends ChainCallDTO, Out>
@@ -194,13 +197,40 @@ function GalaTransaction<In extends ChainCallDTO, Out>(
         if (ctx.isDryRun) {
           // Do not authenticate in dry run mode
         } else if (options?.verifySignature || dto?.signature !== undefined) {
-          ctx.callingUserData = await authenticate(ctx, dto);
+          const authResult = await authenticate(ctx, dto, options.requiredSignatures);
+          ctx.callingUserData = authResult;
         } else {
           // it means a request where authorization is not required. If there is org-based authorization,
           // default roles are applied. If not, then only evaluate is possible. Alias is intentionally
           // missing.
           const roles = !options.allowedOrgs?.length ? [UserRole.EVALUATE] : [...UserProfile.DEFAULT_ROLES];
           ctx.callingUserData = { roles };
+        }
+
+        const usersForValidation = ctx.callingUsers;
+
+        if (
+          options.requiredSignatures !== undefined &&
+          usersForValidation.length < options.requiredSignatures
+        ) {
+          throw new ForbiddenError(
+            `Requires at least ${options.requiredSignatures} signatures but got ${usersForValidation.length}.`,
+            {
+              required: options.requiredSignatures,
+              received: usersForValidation.length
+            }
+          );
+        }
+
+        if (options.requiredRolesPerSigner) {
+          for (const user of usersForValidation) {
+            const has = options.requiredRolesPerSigner.some((role) =>
+              (user.roles ?? []).includes(role)
+            );
+            if (!has) {
+              throw new MissingRoleError(user.alias ?? "anonymous", user.roles, options.requiredRolesPerSigner);
+            }
+          }
         }
 
         // Authorize the user

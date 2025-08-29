@@ -45,11 +45,7 @@ class GalaChainContextConfigImpl implements GalaChainContextConfig {
 
 export class GalaChainContext extends Context {
   stub: GalaChainStub;
-  private callingUserValue?: UserAlias;
-  private callingUserEthAddressValue?: string;
-  private callingUserTonAddressValue?: string;
-  private callingUserRolesValue?: string[];
-  private callingUsersValue?: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[];
+  private callingUsersValue?: UserProfile[];
   private txUnixTimeValue?: number;
   private loggerInstance?: GalaLoggerInstance;
 
@@ -68,89 +64,86 @@ export class GalaChainContext extends Context {
     return this.loggerInstance;
   }
 
-  get callingUser(): UserAlias {
-    if (this.callingUserValue === undefined) {
-      const message =
-        "No calling user set. " +
-        "It usually means that chaincode tried to get ctx.callingUser for unauthorized call (no DTO signature).";
-      throw new UnauthorizedError(message);
+  private get firstUser(): UserProfile {
+    if (this.callingUsersValue === undefined || this.callingUsersValue.length === 0) {
+      throw new UnauthorizedError("No calling users set.");
     }
-    return this.callingUserValue;
+    return this.callingUsersValue[0];
+  }
+
+  get callingUser(): UserAlias {
+    const first = this.firstUser;
+    if (first.alias === undefined) {
+      throw new UnauthorizedError(
+        "No calling user set. It usually means that chaincode tried to get ctx.callingUser for unauthorized call (no DTO signature)."
+      );
+    }
+    return first.alias;
   }
 
   get callingUserEthAddress(): string {
-    if (this.callingUserEthAddressValue === undefined) {
-      throw new UnauthorizedError(`No ETH address known for user ${this.callingUserValue}`);
+    const first = this.firstUser;
+    if (first.ethAddress === undefined) {
+      throw new UnauthorizedError(`No ETH address known for user ${first.alias}`);
     }
-    return this.callingUserEthAddressValue;
+    return first.ethAddress;
   }
 
   get callingUserTonAddress(): string {
-    if (this.callingUserTonAddressValue === undefined) {
-      throw new UnauthorizedError(`No TON address known for user ${this.callingUserValue}`);
+    const first = this.firstUser;
+    if (first.tonAddress === undefined) {
+      throw new UnauthorizedError(`No TON address known for user ${first.alias}`);
     }
-    return this.callingUserTonAddressValue;
+    return first.tonAddress;
   }
 
   get callingUserRoles(): string[] {
-    if (this.callingUserRolesValue === undefined) {
-      throw new UnauthorizedError(`No roles known for user ${this.callingUserValue}`);
+    const first = this.firstUser;
+    if (first.roles === undefined) {
+      throw new UnauthorizedError(`No roles known for user ${first.alias}`);
     }
-    return this.callingUserRolesValue;
+    return first.roles;
   }
 
   get callingUserProfile(): UserProfile {
-    const profile = new UserProfile();
-    profile.alias = this.callingUser;
-    profile.ethAddress = this.callingUserEthAddressValue;
-    profile.tonAddress = this.callingUserTonAddressValue;
-    profile.roles = this.callingUserRoles;
-    return profile;
+    return this.firstUser;
   }
 
-  get callingUsers(): { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[] {
+  get callingUsers(): UserProfile[] {
     if (this.callingUsersValue === undefined) {
       throw new UnauthorizedError("No calling users set.");
     }
     return this.callingUsersValue;
   }
 
-  set callingUsers(users: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[]) {
+  set callingUsers(users: UserProfile[]) {
     this.callingUsersValue = users;
   }
 
+  hasRole(userAlias: UserAlias, role: string): boolean {
+    return (
+      this.callingUsersValue?.some((u) => u.alias === userAlias && (u.roles ?? []).includes(role)) ?? false
+    );
+  }
+
   set callingUserData(d: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }) {
-    if (this.callingUserValue !== undefined) {
-      throw new Error("Calling user already set to " + this.callingUserValue);
+    if (this.callingUsersValue !== undefined) {
+      return; // do not override existing users
     }
 
-    this.callingUserValue = d.alias;
-    this.callingUserRolesValue = d.roles ?? [UserRole.EVALUATE]; // default if `roles` is undefined
+    const profile = new UserProfile();
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - alias may be undefined for unsigned calls
+    profile.alias = d.alias;
+    profile.ethAddress = d.ethAddress;
+    profile.tonAddress = d.tonAddress;
+    profile.roles = d.roles ?? [UserRole.EVALUATE];
 
-    if (d.ethAddress !== undefined) {
-      this.callingUserEthAddressValue = d.ethAddress;
-    }
-
-    if (d.tonAddress !== undefined) {
-      this.callingUserTonAddressValue = d.tonAddress;
-    }
-
-    this.callingUsersValue = [
-      {
-        alias: d.alias,
-        ethAddress: d.ethAddress,
-        tonAddress: d.tonAddress,
-        roles: this.callingUserRolesValue
-      }
-    ];
+    this.callingUsersValue = [profile];
   }
 
   resetCallingUser() {
-    this.callingUserValue = undefined;
-    this.callingUserRolesValue = undefined;
-    this.callingUserEthAddressValue = undefined;
-    this.callingUserTonAddressValue = undefined;
-     this.callingUsersValue = undefined;
+    this.callingUsersValue = undefined;
   }
 
   public setDryRunOnBehalfOf(d: {
@@ -159,18 +152,12 @@ export class GalaChainContext extends Context {
     tonAddress?: string;
     roles: string[];
   }): void {
-    this.callingUserValue = d.alias;
-    this.callingUserRolesValue = d.roles ?? [];
-    this.callingUserEthAddressValue = d.ethAddress;
-    this.callingUserTonAddressValue = d.tonAddress;
-    this.callingUsersValue = [
-      {
-        alias: d.alias,
-        ethAddress: d.ethAddress,
-        tonAddress: d.tonAddress,
-        roles: this.callingUserRolesValue
-      }
-    ];
+    const profile = new UserProfile();
+    profile.alias = d.alias;
+    profile.ethAddress = d.ethAddress;
+    profile.tonAddress = d.tonAddress;
+    profile.roles = d.roles ?? [];
+    this.callingUsersValue = [profile];
     this.isDryRun = true;
   }
 
@@ -196,7 +183,7 @@ export class GalaChainContext extends Context {
     const galaChainStub = createGalaChainStub(stub, this.isDryRun, undefined);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore - missing typings for `setChaincodeStub` in `fabric-contract-api`
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     super.setChaincodeStub(galaChainStub);
   }
 }
+

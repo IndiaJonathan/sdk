@@ -47,6 +47,7 @@ export async function authenticate(
   if (!dto || !dto.signatures || dto.signatures.length === 0) {
     if (dto?.signerAddress?.startsWith("service|")) {
       const chaincode = dto.signerAddress.slice(8);
+      ctx.callingUsers = [];
       return { ...(await authenticateAsOriginChaincode(ctx, dto, chaincode)), users: [], minSignatures };
     }
 

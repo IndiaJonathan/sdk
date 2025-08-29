@@ -49,6 +49,7 @@ export class GalaChainContext extends Context {
   private callingUserEthAddressValue?: string;
   private callingUserTonAddressValue?: string;
   private callingUserRolesValue?: string[];
+  private callingUsersValue?: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[];
   private txUnixTimeValue?: number;
   private loggerInstance?: GalaLoggerInstance;
 
@@ -107,6 +108,17 @@ export class GalaChainContext extends Context {
     return profile;
   }
 
+  get callingUsers(): { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[] {
+    if (this.callingUsersValue === undefined) {
+      throw new UnauthorizedError("No calling users set.");
+    }
+    return this.callingUsersValue;
+  }
+
+  set callingUsers(users: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }[]) {
+    this.callingUsersValue = users;
+  }
+
   set callingUserData(d: { alias?: UserAlias; ethAddress?: string; tonAddress?: string; roles: string[] }) {
     if (this.callingUserValue !== undefined) {
       throw new Error("Calling user already set to " + this.callingUserValue);
@@ -122,6 +134,15 @@ export class GalaChainContext extends Context {
     if (d.tonAddress !== undefined) {
       this.callingUserTonAddressValue = d.tonAddress;
     }
+
+    this.callingUsersValue = [
+      {
+        alias: d.alias,
+        ethAddress: d.ethAddress,
+        tonAddress: d.tonAddress,
+        roles: this.callingUserRolesValue
+      }
+    ];
   }
 
   resetCallingUser() {
@@ -129,6 +150,7 @@ export class GalaChainContext extends Context {
     this.callingUserRolesValue = undefined;
     this.callingUserEthAddressValue = undefined;
     this.callingUserTonAddressValue = undefined;
+     this.callingUsersValue = undefined;
   }
 
   public setDryRunOnBehalfOf(d: {
@@ -141,6 +163,14 @@ export class GalaChainContext extends Context {
     this.callingUserRolesValue = d.roles ?? [];
     this.callingUserEthAddressValue = d.ethAddress;
     this.callingUserTonAddressValue = d.tonAddress;
+    this.callingUsersValue = [
+      {
+        alias: d.alias,
+        ethAddress: d.ethAddress,
+        tonAddress: d.tonAddress,
+        roles: this.callingUserRolesValue
+      }
+    ];
     this.isDryRun = true;
   }
 

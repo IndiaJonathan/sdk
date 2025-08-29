@@ -20,3 +20,4 @@ export * from "./GalaContractApi";
 export * from "./GalaTransaction";
 export * from "./authorize";
 export * from "./getCaIdentityAlias";
+export * from "./MultisigWalletContract";

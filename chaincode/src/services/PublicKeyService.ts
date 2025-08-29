@@ -23,6 +23,7 @@ import {
   UserAlias,
   UserProfile,
   UserProfileWithRoles,
+  ValidationFailedError,
   asValidUserAlias,
   createValidChainObject,
   normalizePublicKey,
@@ -39,6 +40,20 @@ import {
   ProfileExistsError,
   UserProfileNotFoundError
 } from "./PublicKeyError";
+
+class MissingSignerError extends ValidationFailedError {
+  constructor(signature: string) {
+    super(`Missing signerPublicKey or signerAddress field in dto. Signature: ${signature}.`, {
+      signature
+    });
+  }
+}
+
+class UserNotRegisteredError extends ValidationFailedError {
+  constructor(userId: string) {
+    super(`User ${userId} is not registered.`, { userId });
+  }
+}
 
 export class PublicKeyService {
   private static PK_INDEX_KEY = PK_INDEX_KEY;
@@ -155,6 +170,31 @@ export class PublicKeyService {
     return undefined;
   }
 
+  public static async getUserProfiles(
+    ctx: Context,
+    addresses: string[]
+  ): Promise<UserProfileWithRoles[]> {
+    if (addresses.length === 0) {
+      return [];
+    }
+
+    const keys = addresses.map((a) => PublicKeyService.getUserProfileKey(ctx, a));
+    const states = await Promise.all(keys.map((k) => ctx.stub.getState(k)));
+    const result: UserProfileWithRoles[] = [];
+
+    for (const data of states) {
+      if (data.length > 0) {
+        const userProfile = ChainObject.deserialize<UserProfile>(UserProfile, data.toString());
+        if (userProfile.roles === undefined) {
+          userProfile.roles = Array.from(UserProfile.DEFAULT_ROLES);
+        }
+        result.push(userProfile as UserProfileWithRoles);
+      }
+    }
+
+    return result;
+  }
+
   public static getDefaultUserProfile(publicKey: string, signing: SigningScheme): UserProfileWithRoles {
     const address = this.getUserAddress(publicKey, signing);
     const profile = new UserProfile();
@@ -213,6 +253,91 @@ export class PublicKeyService {
     }
 
     return pk;
+  }
+
+  public static async ensureSignaturesValid(
+    ctx: GalaChainContext,
+    dto: ChainCallDTO
+  ): Promise<UserProfileWithRoles[]> {
+    if (!dto.signatures || dto.signatures.length === 0) {
+      return [];
+    }
+
+    const scheme = dto.signing ?? SigningScheme.ETH;
+
+    const addresses: string[] = [];
+    const publicKeys: (string | undefined)[] = [];
+
+    for (const sig of dto.signatures) {
+      if (sig.signerAddress) {
+        addresses.push(sig.signerAddress);
+        publicKeys.push(undefined);
+      } else if (sig.signerPublicKey) {
+        addresses.push(PublicKeyService.getUserAddress(sig.signerPublicKey, scheme));
+        publicKeys.push(sig.signerPublicKey);
+      } else {
+        let recovered: string | undefined;
+        if (dto.signing !== SigningScheme.TON) {
+          try {
+            recovered = signatures.recoverPublicKey(sig.signature, dto, dto.prefix ?? "");
+          } catch {
+            recovered = undefined;
+          }
+        }
+        if (recovered) {
+          addresses.push(PublicKeyService.getUserAddress(recovered, scheme));
+          publicKeys.push(signatures.getCompactBase64PublicKey(recovered));
+        } else {
+          throw new MissingSignerError(sig.signature);
+        }
+      }
+    }
+
+    const profilesArr = await PublicKeyService.getUserProfiles(ctx, addresses);
+    const profileMap = new Map<string, UserProfileWithRoles>();
+    for (const p of profilesArr) {
+      if (p.ethAddress) {
+        profileMap.set(p.ethAddress, p);
+      }
+      if (p.tonAddress) {
+        profileMap.set(p.tonAddress, p);
+      }
+    }
+
+    const users: UserProfileWithRoles[] = [];
+
+    for (let i = 0; i < addresses.length; i++) {
+      const address = addresses[i];
+      let profile = profileMap.get(address);
+      let pk = publicKeys[i];
+
+      if (!profile) {
+        if (ctx.config.allowNonRegisteredUsers && pk) {
+          profile = PublicKeyService.getDefaultUserProfile(pk, scheme);
+        } else {
+          throw new UserNotRegisteredError(address);
+        }
+      }
+
+      if (!pk) {
+        const pkObj = await PublicKeyService.getPublicKey(ctx, profile.alias);
+        if (!pkObj) {
+          throw new PkMissingError(profile.alias);
+        }
+        pk = pkObj.publicKey;
+        publicKeys[i] = pk;
+      }
+
+      users.push(profile);
+    }
+
+    const pkList: string[] = publicKeys.map((p) => p as string);
+    if (!dto.verifySignatures(pkList)) {
+      const alias = users[0]?.alias ?? addresses[0];
+      throw new PkInvalidSignatureError(alias);
+    }
+
+    return users;
   }
 
   public static async registerUser(

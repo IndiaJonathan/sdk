@@ -12,10 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 import eth from "./eth";
-import ton from "./ton";
 import type { SigningScheme } from "./index";
+import ton from "./ton";
 
 export interface SignatureEntry {
   sig: string | Buffer;
@@ -93,4 +92,3 @@ function verify(
 }
 
 export default { sign, verify } as const;
-

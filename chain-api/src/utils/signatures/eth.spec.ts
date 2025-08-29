@@ -488,7 +488,7 @@ describe("eth addr validation", () => {
     expect(signatures.isChecksumedEthAddress(invalid)).toEqual(false);
 
     // wrong prefix
-  expect(signatures.isChecksumedEthAddress(`1x${valid}`)).toEqual(false);
+    expect(signatures.isChecksumedEthAddress(`1x${valid}`)).toEqual(false);
   });
 });
 

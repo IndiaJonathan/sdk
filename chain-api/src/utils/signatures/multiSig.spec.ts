@@ -12,10 +12,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import multiSig from "./multiSig";
 import eth from "./eth";
 import { SigningScheme } from "./index";
+import multiSig from "./multiSig";
 
 it("should sign and verify using multiple keys", () => {
   const pair1 = eth.genKeyPair();
@@ -39,4 +38,3 @@ it("should sign and verify using multiple keys", () => {
     expect(v.address).toBe(signatures[i].address);
   });
 });
-

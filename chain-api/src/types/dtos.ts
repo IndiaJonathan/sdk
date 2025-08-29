@@ -21,7 +21,6 @@ import {
   IsOptional,
   Max,
   Min,
-  MinLength,
   ValidateNested,
   ValidationError,
   validate
@@ -50,6 +49,19 @@ export type Inferred<T, BaseT = any> = T extends (infer U)[] ? Base<U, BaseT> : 
 
 export interface ClassConstructor<T> {
   new (...args: unknown[]): T;
+}
+
+export class MultiSignature {
+  @IsNotEmpty()
+  signature: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  signerAddress?: string;
+
+  @IsOptional()
+  @IsNotEmpty()
+  signerPublicKey?: string;
 }
 
 class DtoValidationFailedError extends ValidationFailedError {
@@ -137,6 +149,7 @@ export function createValidSubmitDTO<T extends SubmitCallDTO>(
  * or in the OpenAPI documentation served alongside GalaChain's API endpoints.
  */
 export class ChainCallDTO {
+  public static readonly SIGNATURES_MAX = 10;
   @JSONSchema({
     description:
       "Unique key of the DTO. It is used to prevent double execution of the same transaction on chain. " +
@@ -160,6 +173,16 @@ export class ChainCallDTO {
   @IsOptional()
   @IsNotEmpty()
   public signature?: string;
+
+  @JSONSchema({
+    description: "Array of signatures authorizing this DTO. Each entry may include signer details."
+  })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => MultiSignature)
+  @ArrayMinSize(1)
+  @ArrayMaxSize(ChainCallDTO.SIGNATURES_MAX)
+  public signatures?: MultiSignature[];
 
   @JSONSchema({
     description:
@@ -248,29 +271,78 @@ export class ChainCallDTO {
     constructor: ClassConstructor<Inferred<T, ChainCallDTO>>,
     object: string | Record<string, unknown> | Record<string, unknown>[]
   ): T {
-    return deserialize<T, ChainCallDTO>(constructor, object);
+    const result = deserialize<T, ChainCallDTO>(constructor, object);
+    const normalize = (dto: ChainCallDTO): void => dto.normalizeSignatures();
+
+    if (Array.isArray(result)) {
+      result.forEach((r) => r instanceof ChainCallDTO && normalize(r));
+    } else if (result instanceof ChainCallDTO) {
+      normalize(result);
+    }
+
+    return result as T;
+  }
+
+  private normalizeSignatures(): void {
+    if (this.signatures && this.signatures.length > 0) {
+      const first = this.signatures[0];
+      this.signature = first.signature;
+      this.signerAddress = first.signerAddress;
+      this.signerPublicKey = first.signerPublicKey;
+    } else if (this.signature !== undefined) {
+      this.signatures = [
+        {
+          signature: this.signature,
+          signerAddress: this.signerAddress,
+          signerPublicKey: this.signerPublicKey
+        }
+      ];
+    }
   }
 
   public sign(privateKey: string, useDer = false): void {
+    this.signatures = [];
+    this.addSignature(privateKey, { useDer });
+  }
+
+  public addSignature(
+    privateKey: string,
+    options: { useDer?: boolean; signingScheme?: SigningScheme } = {}
+  ): void {
+    const { useDer = false, signingScheme } = options;
+    const scheme = signingScheme ?? this.signing;
+
     if (useDer) {
-      if (this.signing === SigningScheme.TON) {
+      if (scheme === SigningScheme.TON) {
         throw new ValidationFailedError("TON signing scheme does not support DER signatures");
-      } else {
-        if (this.signerPublicKey === undefined && this.signerAddress === undefined) {
-          this.signerPublicKey = signatures.getPublicKey(privateKey);
-        }
+      } else if (this.signerPublicKey === undefined && this.signerAddress === undefined) {
+        this.signerPublicKey = signatures.getPublicKey(privateKey);
       }
     }
 
-    if (this.signing === SigningScheme.TON) {
+    let signatureStr: string;
+    if (scheme === SigningScheme.TON) {
       const keyBuffer = Buffer.from(privateKey, "base64");
-      this.signature = signatures.ton.getSignature(this, keyBuffer, this.prefix).toString("base64");
+      signatureStr = signatures.ton.getSignature(this, keyBuffer, this.prefix).toString("base64");
     } else {
       const keyBuffer = signatures.normalizePrivateKey(privateKey);
-      this.signature = useDer
+      signatureStr = useDer
         ? signatures.getDERSignature(this, keyBuffer)
         : signatures.getSignature(this, keyBuffer);
     }
+
+    if (!this.signatures) {
+      this.signatures = [];
+    }
+
+    this.signatures.push({
+      signature: signatureStr,
+      signerAddress: this.signerAddress,
+      signerPublicKey: this.signerPublicKey
+    });
+
+    this.signing = scheme;
+    this.normalizeSignatures();
   }
 
   /**
@@ -283,13 +355,36 @@ export class ChainCallDTO {
     return copied;
   }
 
+  public verifySignatures(publicKeys: string[]): boolean {
+    if (!this.signatures || this.signatures.length === 0) {
+      return false;
+    }
+
+    return this.signatures.every((sig) =>
+      publicKeys.some((pk) => {
+        if (this.signing === SigningScheme.TON) {
+          const signatureBuff = Buffer.from(sig.signature ?? "", "base64");
+          const publicKeyBuff = Buffer.from(pk, "base64");
+          return signatures.ton.isValidSignature(signatureBuff, this, publicKeyBuff, this.prefix);
+        } else {
+          return signatures.isValid(sig.signature ?? "", this, pk);
+        }
+      })
+    );
+  }
+
   public isSignatureValid(publicKey: string): boolean {
+    if (!this.signatures || this.signatures.length === 0) {
+      return false;
+    }
+
+    const sig = this.signatures[0];
     if (this.signing === SigningScheme.TON) {
-      const signatureBuff = Buffer.from(this.signature ?? "", "base64");
+      const signatureBuff = Buffer.from(sig.signature ?? "", "base64");
       const publicKeyBuff = Buffer.from(publicKey, "base64");
       return signatures.ton.isValidSignature(signatureBuff, this, publicKeyBuff, this.prefix);
     } else {
-      return signatures.isValid(this.signature ?? "", this, publicKey);
+      return signatures.isValid(sig.signature ?? "", this, publicKey);
     }
   }
 }
@@ -560,7 +655,9 @@ export class GetPublicKeyDto extends ChainCallDTO {
 }
 
 export class GetMyProfileDto extends ChainCallDTO {
-  // make signature required
-  @IsNotEmpty()
-  signature: string;
+  @ValidateNested({ each: true })
+  @Type(() => MultiSignature)
+  @ArrayMinSize(1)
+  @ArrayMaxSize(ChainCallDTO.SIGNATURES_MAX)
+  signatures: MultiSignature[];
 }

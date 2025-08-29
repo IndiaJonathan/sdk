@@ -24,8 +24,28 @@ import stringify from "json-stringify-deterministic";
  * for more details.
  *
  * @param object
+ * @param keysToOmit
  * @returns unknown
  */
-export default function serialize(object: unknown) {
-  return stringify(instanceToPlain(object));
+export default function serialize(object: unknown, keysToOmit: string[] = []) {
+  const omitKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) {
+      return value.map(omitKeys);
+    } else if (value && typeof value === "object") {
+      return Object.keys(value as Record<string, unknown>)
+        .filter((k) => !keysToOmit.includes(k))
+        .sort()
+        .reduce(
+          (acc, key) => {
+            acc[key] = omitKeys((value as Record<string, unknown>)[key]);
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
+    } else {
+      return value;
+    }
+  };
+
+  return stringify(omitKeys(instanceToPlain(object)));
 }

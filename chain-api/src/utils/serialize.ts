@@ -35,10 +35,13 @@ export default function serialize(object: unknown, keysToOmit: string[] = []) {
       return Object.keys(value as Record<string, unknown>)
         .filter((k) => !keysToOmit.includes(k))
         .sort()
-        .reduce((acc, key) => {
-          acc[key] = omitKeys((value as Record<string, unknown>)[key]);
-          return acc;
-        }, {} as Record<string, unknown>);
+        .reduce(
+          (acc, key) => {
+            acc[key] = omitKeys((value as Record<string, unknown>)[key]);
+            return acc;
+          },
+          {} as Record<string, unknown>
+        );
     } else {
       return value;
     }

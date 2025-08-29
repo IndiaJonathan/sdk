@@ -112,11 +112,11 @@ const expectedTestDtoSchema = {
           signerPublicKey: { minLength: 1, type: "string" }
         },
         required: ["signature"],
-        type: "object",
+        type: "object"
       },
       maxItems: 10,
       minItems: 1,
-      type: "array",
+      type: "array"
     },
     signerPublicKey: {
       description: "Public key of the user who signed the DTO.",

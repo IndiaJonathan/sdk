@@ -21,7 +21,6 @@ import {
   IsOptional,
   Max,
   Min,
-  MinLength,
   ValidateNested,
   ValidationError,
   validate
@@ -176,7 +175,7 @@ export class ChainCallDTO {
   public signature?: string;
 
   @JSONSchema({
-    description: "Array of signatures authorizing this DTO. Each entry may include signer details." 
+    description: "Array of signatures authorizing this DTO. Each entry may include signer details."
   })
   @IsOptional()
   @ValidateNested({ each: true })

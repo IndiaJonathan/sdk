@@ -73,6 +73,20 @@ it("should sign and verify TON signature", async () => {
   expect(isValid).toBeTruthy();
 });
 
+it("should sign and verify buffers", () => {
+  const keyPair = {
+    secretKey: Buffer.from(
+      "wa50qZmPeW5qyETdnYPSRLzdOD6Fv3R/drWgPYkcy6aRiZKhoZ29Lc2MtqJkRVTjR7gDJgXR0qGaPbMFNszGPw==",
+      "base64"
+    ),
+    publicKey: Buffer.from("kYmSoaGdvS3NjLaiZEVU40e4AyYF0dKhmj2zBTbMxj8=", "base64")
+  };
+  const payload = Buffer.from("hello ton");
+  const sig = ton.signMessage(keyPair.secretKey, payload);
+  const valid = ton.verifySignature(sig, payload, keyPair.publicKey);
+  expect(valid).toBeTruthy();
+});
+
 it("should validate supported TON address", () => {
   // Given
   const validBouncable = "EQAWzEKcdnykvXfUNouqdS62tvrp32bCxuKS6eQrS6ISgcLo";

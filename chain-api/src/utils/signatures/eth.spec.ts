@@ -172,6 +172,18 @@ describe("signatures", () => {
     expect(actualSignature).toEqual(derSignature);
   });
 
+  it("should sign and verify payload buffers", () => {
+    const privateKeyBuffer = Buffer.from(privateKey, "hex");
+    const publicKeyBuffer = Buffer.from(publicKey, "hex");
+    const payloadBuffer = Buffer.from(getPayloadToSign(payload));
+
+    const sig = signatures.signMessage(privateKeyBuffer, payloadBuffer);
+    expect(sig).toEqual(signature);
+
+    const valid = signatures.verifySignature(sig, payloadBuffer, publicKeyBuffer);
+    expect(valid).toBeTruthy();
+  });
+
   it("should parse signature", async () => {
     // When
     const parsed = signatures.parseSecp256k1Signature(signature);

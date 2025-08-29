@@ -170,10 +170,7 @@ export class PublicKeyService {
     return undefined;
   }
 
-  public static async getUserProfiles(
-    ctx: Context,
-    addresses: string[]
-  ): Promise<UserProfileWithRoles[]> {
+  public static async getUserProfiles(ctx: Context, addresses: string[]): Promise<UserProfileWithRoles[]> {
     if (addresses.length === 0) {
       return [];
     }
@@ -331,10 +328,25 @@ export class PublicKeyService {
       users.push(profile);
     }
 
-    const pkList: string[] = publicKeys.map((p) => p as string);
-    if (!dto.verifySignatures(pkList)) {
-      const alias = users[0]?.alias ?? addresses[0];
-      throw new PkInvalidSignatureError(alias);
+    for (let i = 0; i < dto.signatures.length; i++) {
+      const sig = dto.signatures[i];
+      const pk = publicKeys[i] as string;
+      const user = users[i];
+
+      const isValid =
+        dto.signing === SigningScheme.TON
+          ? signatures.ton.isValidSignature(
+              Buffer.from(sig.signature ?? "", "base64"),
+              dto,
+              Buffer.from(pk, "base64"),
+              dto.prefix
+            )
+          : signatures.isValid(sig.signature ?? "", dto, pk);
+
+      if (!isValid) {
+        const alias = user?.alias ?? addresses[i];
+        throw new PkInvalidSignatureError(alias);
+      }
     }
 
     return users;

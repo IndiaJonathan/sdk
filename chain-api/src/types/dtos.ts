@@ -33,7 +33,7 @@ import {
   ValidationFailedError,
   deserialize,
   getValidationErrorMessages,
-  randomUniqueKey,
+  randomUniqueKey as randomUniqueKeyUtil,
   serialize,
   signatures
 } from "../utils";
@@ -88,6 +88,10 @@ type NonFunctionPropertyNames<T> = { [K in keyof T]: T[K] extends Function ? nev
 
 export type NonFunctionProperties<T> = Pick<T, NonFunctionPropertyNames<T>>;
 
+export function randomUniqueKey(): string {
+  return randomUniqueKeyUtil();
+}
+
 /**
  * Creates valid DTO object from provided plain object.
  * Throws exception in case of validation errors.
@@ -118,6 +122,49 @@ export function createValidSubmitDTO<T extends SubmitCallDTO>(
     ...plain,
     uniqueKey: plain?.uniqueKey ?? randomUniqueKey()
   } as unknown as NonFunctionProperties<T>);
+}
+
+export class SignatureDto {
+  @JSONSchema({
+    description:
+      "Signature of the DTO signed with caller's private key to be verified with user's public key saved on chain. " +
+      "The 'signature' field is optional for DTO, but is required for a transaction to be executed on chain. \n" +
+      "Please consult [GalaChain SDK documentation](https://github.com/GalaChain/sdk/blob/main/docs/authorization.md#signature-based-authorization) on how to create signatures."
+  })
+  @IsNotEmpty()
+  signature: string;
+
+  @JSONSchema({
+    description:
+      "Prefix for Metamask transaction signatures. " +
+      "Necessary to format payloads correctly to recover publicKey from web3 signatures."
+  })
+  @IsOptional()
+  @IsNotEmpty()
+  prefix?: string;
+
+  @JSONSchema({
+    description: "Address of the user who signed the DTO. Typically Ethereum or TON address."
+  })
+  @IsOptional()
+  @IsNotEmpty()
+  signerAddress?: string;
+
+  @JSONSchema({
+    description: "Public key of the user who signed the DTO."
+  })
+  @IsOptional()
+  @IsNotEmpty()
+  signerPublicKey?: string;
+
+  @JSONSchema({
+    description:
+      `Signing scheme used for the signature. "${SigningScheme.ETH}" for Ethereum, and "${SigningScheme.TON}" for The Open Network are supported. ` +
+      `Default: "${SigningScheme.ETH}".`
+  })
+  @IsOptional()
+  @StringEnumProperty(SigningScheme)
+  signing?: SigningScheme;
 }
 
 /**
@@ -193,6 +240,12 @@ export class ChainCallDTO {
   @IsOptional()
   @StringEnumProperty(SigningScheme)
   public signing?: SigningScheme;
+
+  @JSONSchema({ description: "List of signatures associated with the DTO." })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => SignatureDto)
+  public signatures?: SignatureDto[];
 
   @JSONSchema({
     description: "Unit timestamp when the DTO expires. If the timestamp is in the past, the DTO is not valid."
@@ -271,6 +324,19 @@ export class ChainCallDTO {
         ? signatures.getDERSignature(this, keyBuffer)
         : signatures.getSignature(this, keyBuffer);
     }
+
+    const sig = plainToInstance(SignatureDto, {
+      signature: this.signature,
+      prefix: this.prefix,
+      signerAddress: this.signerAddress,
+      signerPublicKey: this.signerPublicKey,
+      signing: this.signing
+    });
+
+    if (!this.signatures) {
+      this.signatures = [];
+    }
+    this.signatures.push(sig);
   }
 
   /**

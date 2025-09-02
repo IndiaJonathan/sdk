@@ -114,6 +114,44 @@ const expectedTestDtoSchema = {
       enum: ["ETH", "TON"],
       type: "string"
     },
+    signatures: {
+      description: "List of signatures associated with the DTO.",
+      items: {
+        properties: {
+          prefix: {
+            description: "Prefix for Metamask transaction signatures. Necessary to format payloads correctly to recover publicKey from web3 signatures.",
+            minLength: 1,
+            type: "string"
+          },
+          signature: {
+            description: expect.stringContaining(
+              "Signature of the DTO signed with caller's private key"
+            ),
+            minLength: 1,
+            type: "string"
+          },
+          signerAddress: {
+            description: "Address of the user who signed the DTO. Typically Ethereum or TON address.",
+            minLength: 1,
+            type: "string"
+          },
+          signerPublicKey: {
+            description: "Public key of the user who signed the DTO.",
+            minLength: 1,
+            type: "string"
+          },
+          signing: {
+            description:
+              'Signing scheme used for the signature. "ETH" for Ethereum, and "TON" for The Open Network are supported. Default: "ETH".',
+            enum: ["ETH", "TON"],
+            type: "string"
+          }
+        },
+        required: ["signature"],
+        type: "object"
+      },
+      type: "array"
+    },
     uniqueKey: {
       description:
         "Unique key of the DTO. It is used to prevent double execution of the same transaction on chain. " +

@@ -104,6 +104,7 @@ export class GalaChainContext extends Context {
     profile.ethAddress = this.callingUserEthAddressValue;
     profile.tonAddress = this.callingUserTonAddressValue;
     profile.roles = this.callingUserRoles;
+    profile.pubKeyCount = 0;
     return profile;
   }
 

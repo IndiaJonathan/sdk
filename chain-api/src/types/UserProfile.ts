@@ -66,7 +66,7 @@ export class UserProfile extends ChainObject {
   })
   @IsInt()
   @Min(0)
-  pubKeyCount: number;
+  pubKeyCount = 0;
 }
 
 export const UP_INDEX_KEY = "GCUP";

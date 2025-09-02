@@ -26,7 +26,8 @@ import {
   asValidUserAlias,
   createValidChainObject,
   normalizePublicKeys,
-  signatures
+  signatures,
+  SignatureDto
 } from "@gala-chain/api";
 import { Context } from "fabric-contract-api";
 
@@ -218,10 +219,40 @@ export class PublicKeyService {
     if (pk === undefined) {
       throw new PkMissingError(userId);
     }
+    const signaturesList: SignatureDto[] =
+      dto.signatures && dto.signatures.length > 0
+        ? dto.signatures
+        : [
+            {
+              signature: dto.signature ?? "",
+              prefix: dto.prefix,
+              signerAddress: dto.signerAddress,
+              signerPublicKey: dto.signerPublicKey,
+              signing: dto.signing
+            }
+          ];
 
-    const isSignatureValid = pk.publicKeys.some((key) => dto.isSignatureValid(key));
+    const validKeys = new Set<string>();
 
-    if (!isSignatureValid) {
+    for (const sig of signaturesList) {
+      for (const key of pk.publicKeys) {
+        const isValid =
+          (sig.signing ?? pk.signing) === SigningScheme.TON
+            ? signatures.ton.isValidSignature(
+                Buffer.from(sig.signature ?? "", "base64"),
+                dto,
+                Buffer.from(key, "base64"),
+                sig.prefix
+              )
+            : signatures.isValid(sig.signature ?? "", dto, key);
+
+        if (isValid) {
+          validKeys.add(key);
+        }
+      }
+    }
+
+    if (validKeys.size < pk.requiredSignatures) {
       throw new PkInvalidSignatureError(userId);
     }
 

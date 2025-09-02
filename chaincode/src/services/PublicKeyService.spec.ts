@@ -12,7 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {
+  ChainCallDTO,
+  PublicKey,
+  SigningScheme,
+  signatures
+} from "@gala-chain/api";
 import { PublicKeyService } from "./PublicKeyService";
+import { PkInvalidSignatureError } from "./PublicKeyError";
 
 it(`should normalize secp256k1 public key`, async () => {
   // Given
@@ -54,4 +61,48 @@ it(`should normalize secp256k1 public key`, async () => {
   expect(keyFromHex0x).toEqual(inputBase64Compressed);
   expect(await fails1.catch((e) => e.message)).toEqual(expect.stringContaining("Cannot normalize secp256k1"));
   expect(await fails2.catch((e) => e.message)).toEqual(expect.stringContaining("Unknown point format"));
+});
+
+describe(`ensurePublicKeySignatureIsValid`, () => {
+  const ctx: unknown = {};
+  const userId = "user";
+
+  it(`should fail when not enough valid signatures`, async () => {
+    const pair1 = signatures.genKeyPair();
+    const pair2 = signatures.genKeyPair();
+
+    const pk = new PublicKey();
+    pk.publicKeys = [pair1.publicKey, pair2.publicKey];
+    pk.requiredSignatures = 2;
+    pk.signing = SigningScheme.ETH;
+
+    jest.spyOn(PublicKeyService, "getPublicKey").mockResolvedValue(pk);
+
+    const dto = new ChainCallDTO();
+    dto.sign(pair1.privateKey);
+
+    await expect(
+      PublicKeyService.ensurePublicKeySignatureIsValid(ctx as any, userId, dto)
+    ).rejects.toBeInstanceOf(PkInvalidSignatureError);
+  });
+
+  it(`should succeed when enough valid signatures are provided`, async () => {
+    const pair1 = signatures.genKeyPair();
+    const pair2 = signatures.genKeyPair();
+
+    const pk = new PublicKey();
+    pk.publicKeys = [pair1.publicKey, pair2.publicKey];
+    pk.requiredSignatures = 2;
+    pk.signing = SigningScheme.ETH;
+
+    jest.spyOn(PublicKeyService, "getPublicKey").mockResolvedValue(pk);
+
+    const dto = new ChainCallDTO();
+    dto.sign(pair1.privateKey);
+    dto.sign(pair2.privateKey);
+
+    await expect(
+      PublicKeyService.ensurePublicKeySignatureIsValid(ctx as any, userId, dto)
+    ).resolves.toEqual(pk);
+  });
 });

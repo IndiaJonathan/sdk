@@ -32,14 +32,18 @@ it(`should normalize secp256k1 public key`, async () => {
   const inputInvalid2 = inputHex.replace("0", "1");
 
   // When
-  const keyFromBase64C = PublicKeyService.normalizePublicKey(inputBase64Compressed);
-  const keyFromBase64 = PublicKeyService.normalizePublicKey(inputBase64);
-  const keyFromHexC = PublicKeyService.normalizePublicKey(inputHexCompressed);
-  const keyFromHex = PublicKeyService.normalizePublicKey(inputHex);
-  const keyFromHex0xC = PublicKeyService.normalizePublicKey(inputHex0xCompressed);
-  const keyFromHex0x = PublicKeyService.normalizePublicKey(inputHex0x);
-  const fails1 = new Promise((res) => res(PublicKeyService.normalizePublicKey(inputInvalid1)));
-  const fails2 = new Promise((res) => res(PublicKeyService.normalizePublicKey(inputInvalid2)));
+  const keyFromBase64C = PublicKeyService.normalizePublicKeys([inputBase64Compressed])[0];
+  const keyFromBase64 = PublicKeyService.normalizePublicKeys([inputBase64])[0];
+  const keyFromHexC = PublicKeyService.normalizePublicKeys([inputHexCompressed])[0];
+  const keyFromHex = PublicKeyService.normalizePublicKeys([inputHex])[0];
+  const keyFromHex0xC = PublicKeyService.normalizePublicKeys([inputHex0xCompressed])[0];
+  const keyFromHex0x = PublicKeyService.normalizePublicKeys([inputHex0x])[0];
+  const fails1 = new Promise((res) =>
+    res(PublicKeyService.normalizePublicKeys([inputInvalid1]))
+  );
+  const fails2 = new Promise((res) =>
+    res(PublicKeyService.normalizePublicKeys([inputInvalid2]))
+  );
 
   // Then
   expect(keyFromBase64C).toEqual(inputBase64Compressed);

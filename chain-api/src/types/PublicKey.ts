@@ -12,24 +12,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { ArrayNotEmpty, IsInt, IsOptional, IsString, Min } from "class-validator";
 
 import { SigningScheme, signatures } from "../utils";
 import { StringEnumProperty } from "../validators";
 import { ChainObject } from "./ChainObject";
 
 export class PublicKey extends ChainObject {
-  @IsString()
-  @IsNotEmpty()
-  publicKey: string;
+  @IsString({ each: true })
+  @ArrayNotEmpty()
+  public publicKeys: string[];
+
+  @IsInt()
+  @Min(1)
+  public requiredSignatures: number;
 
   @IsOptional()
   @StringEnumProperty(SigningScheme)
   public signing?: SigningScheme;
+
+  // backwards compatibility helper for single-key usage
+  get publicKey(): string {
+    return this.publicKeys?.[0];
+  }
+
+  set publicKey(value: string) {
+    this.publicKeys = [value];
+    this.requiredSignatures = 1;
+  }
 }
 
 export const PK_INDEX_KEY = "GCPK";
 
-export function normalizePublicKey(input: string): string {
-  return signatures.normalizePublicKey(input).toString("base64");
+export function normalizePublicKeys(input: string[]): string[] {
+  const normalized = input.map((pk) => signatures.normalizePublicKey(pk).toString("base64"));
+  return normalized.sort();
 }

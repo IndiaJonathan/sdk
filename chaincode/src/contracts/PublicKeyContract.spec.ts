@@ -87,7 +87,8 @@ describe("RegisterUser", () => {
 
     expect(await getPublicKey(chaincode, dto.user)).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(publicKey),
+        publicKeys: [PublicKeyService.normalizePublicKeys([publicKey])[0]],
+        requiredSignatures: 1,
         signing: SigningScheme.ETH
       })
     );
@@ -173,7 +174,8 @@ describe("RegisterUser", () => {
     const savedPk = await chaincode.invoke("PublicKeyContract:GetPublicKey", getPublicKeyDto);
     expect(savedPk).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(user2.publicKey)
+        publicKeys: [PublicKeyService.normalizePublicKeys([user2.publicKey])[0]],
+        requiredSignatures: 1
       })
     );
   });
@@ -214,7 +216,8 @@ describe("RegisterUser", () => {
     const getPublicKeyResponse = await chaincode.invoke("PublicKeyContract:GetPublicKey", getPublicKeyDto);
     expect(getPublicKeyResponse).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(user2.publicKey)
+        publicKeys: [PublicKeyService.normalizePublicKeys([user2.publicKey])[0]],
+        requiredSignatures: 1
       })
     );
   });
@@ -237,7 +240,8 @@ describe("RegisterUser", () => {
 
     expect(await getPublicKey(chaincode, alias)).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(publicKey),
+        publicKeys: [PublicKeyService.normalizePublicKeys([publicKey])[0]],
+        requiredSignatures: 1,
         signing: SigningScheme.ETH
       })
     );
@@ -304,7 +308,8 @@ describe("UpdatePublicKey", () => {
     // New key is saved
     expect(await getPublicKey(chaincode, user.alias)).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(newPublicKey),
+        publicKeys: [PublicKeyService.normalizePublicKeys([newPublicKey])[0]],
+        requiredSignatures: 1,
         signing: SigningScheme.ETH
       })
     );
@@ -337,7 +342,8 @@ describe("UpdatePublicKey", () => {
     // New key is saved
     expect(await getPublicKey(chaincode, user.alias)).toEqual(
       transactionSuccess({
-        publicKey: PublicKeyService.normalizePublicKey(newPublicKey),
+        publicKeys: [PublicKeyService.normalizePublicKeys([newPublicKey])[0]],
+        requiredSignatures: 1,
         signing: SigningScheme.ETH
       })
     );

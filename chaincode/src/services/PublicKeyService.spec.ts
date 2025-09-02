@@ -12,7 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {
+  ChainCallDTO,
+  PublicKey,
+  SigningScheme,
+  signatures
+} from "@gala-chain/api";
 import { PublicKeyService } from "./PublicKeyService";
+import { PkInvalidSignatureError } from "./PublicKeyError";
 
 it(`should normalize secp256k1 public key`, async () => {
   // Given
@@ -32,14 +39,18 @@ it(`should normalize secp256k1 public key`, async () => {
   const inputInvalid2 = inputHex.replace("0", "1");
 
   // When
-  const keyFromBase64C = PublicKeyService.normalizePublicKey(inputBase64Compressed);
-  const keyFromBase64 = PublicKeyService.normalizePublicKey(inputBase64);
-  const keyFromHexC = PublicKeyService.normalizePublicKey(inputHexCompressed);
-  const keyFromHex = PublicKeyService.normalizePublicKey(inputHex);
-  const keyFromHex0xC = PublicKeyService.normalizePublicKey(inputHex0xCompressed);
-  const keyFromHex0x = PublicKeyService.normalizePublicKey(inputHex0x);
-  const fails1 = new Promise((res) => res(PublicKeyService.normalizePublicKey(inputInvalid1)));
-  const fails2 = new Promise((res) => res(PublicKeyService.normalizePublicKey(inputInvalid2)));
+  const keyFromBase64C = PublicKeyService.normalizePublicKeys([inputBase64Compressed])[0];
+  const keyFromBase64 = PublicKeyService.normalizePublicKeys([inputBase64])[0];
+  const keyFromHexC = PublicKeyService.normalizePublicKeys([inputHexCompressed])[0];
+  const keyFromHex = PublicKeyService.normalizePublicKeys([inputHex])[0];
+  const keyFromHex0xC = PublicKeyService.normalizePublicKeys([inputHex0xCompressed])[0];
+  const keyFromHex0x = PublicKeyService.normalizePublicKeys([inputHex0x])[0];
+  const fails1 = new Promise((res) =>
+    res(PublicKeyService.normalizePublicKeys([inputInvalid1]))
+  );
+  const fails2 = new Promise((res) =>
+    res(PublicKeyService.normalizePublicKeys([inputInvalid2]))
+  );
 
   // Then
   expect(keyFromBase64C).toEqual(inputBase64Compressed);
@@ -50,4 +61,48 @@ it(`should normalize secp256k1 public key`, async () => {
   expect(keyFromHex0x).toEqual(inputBase64Compressed);
   expect(await fails1.catch((e) => e.message)).toEqual(expect.stringContaining("Cannot normalize secp256k1"));
   expect(await fails2.catch((e) => e.message)).toEqual(expect.stringContaining("Unknown point format"));
+});
+
+describe(`ensurePublicKeySignatureIsValid`, () => {
+  const ctx: unknown = {};
+  const userId = "user";
+
+  it(`should fail when not enough valid signatures`, async () => {
+    const pair1 = signatures.genKeyPair();
+    const pair2 = signatures.genKeyPair();
+
+    const pk = new PublicKey();
+    pk.publicKeys = [pair1.publicKey, pair2.publicKey];
+    pk.requiredSignatures = 2;
+    pk.signing = SigningScheme.ETH;
+
+    jest.spyOn(PublicKeyService, "getPublicKey").mockResolvedValue(pk);
+
+    const dto = new ChainCallDTO();
+    dto.sign(pair1.privateKey);
+
+    await expect(
+      PublicKeyService.ensurePublicKeySignatureIsValid(ctx as any, userId, dto)
+    ).rejects.toBeInstanceOf(PkInvalidSignatureError);
+  });
+
+  it(`should succeed when enough valid signatures are provided`, async () => {
+    const pair1 = signatures.genKeyPair();
+    const pair2 = signatures.genKeyPair();
+
+    const pk = new PublicKey();
+    pk.publicKeys = [pair1.publicKey, pair2.publicKey];
+    pk.requiredSignatures = 2;
+    pk.signing = SigningScheme.ETH;
+
+    jest.spyOn(PublicKeyService, "getPublicKey").mockResolvedValue(pk);
+
+    const dto = new ChainCallDTO();
+    dto.sign(pair1.privateKey);
+    dto.sign(pair2.privateKey);
+
+    await expect(
+      PublicKeyService.ensurePublicKeySignatureIsValid(ctx as any, userId, dto)
+    ).resolves.toEqual(pk);
+  });
 });

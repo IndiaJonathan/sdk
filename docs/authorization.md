@@ -193,6 +193,39 @@ The serialized payload string must be prepared in the same way as for Ethereum s
 signature = Ed25519Sign(privkey, sha256(0xffff ++ utf8_encode(seed) ++ sha256(message)))
 ```
 
+### Multisignature users and quorum enforcement
+
+GalaChain allows a single user to control multiple public keys. When registering a
+user, provide an array of `publicKeys` and specify how many unique signatures are
+required to authorize a transaction via the `requiredSignatures` field. The
+registered profile stores both the total key count and the signature threshold.
+
+Transactions include a `signatures` array. Each entry contains the detached
+`signature`, the `signerPublicKey` or `signerAddress`, and optional `signing`
+scheme information:
+
+```json
+[
+  { "signature": "0x..", "signerPublicKey": "pk1" },
+  { "signature": "0x..", "signerPublicKey": "pk2" }
+]
+```
+
+All signatures must come from different keys. During authorization the chaincode
+requires at least `max(user.requiredSignatures, quorum)` unique signatures. If too
+few signatures are provided or the same key is used twice, the transaction is
+rejected.
+
+#### Example
+
+```typescript
+const dto = await createValidSubmitDTO(UpdatePublicKeyDto, { publicKey: newKey });
+dto.sign(firstPrivateKey);
+dto.signerPublicKey = secondPublicKey;
+dto.sign(secondPrivateKey);
+await client.pk.UpdatePublicKey(dto); // succeeds with two signatures
+```
+
 ### Authenticating in the chaincode
 
 In the chaincode, before the transaction is executed, GalaChain SDK will recover the public key from the signature and check if the user is registered.

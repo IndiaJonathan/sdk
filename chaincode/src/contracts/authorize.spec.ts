@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { ChainCallDTO, ChainUser, UserProfile, UserRole } from "@gala-chain/api";
+import { ChainCallDTO, ChainUser, UserProfile, UserRole, signatures } from "@gala-chain/api";
 import {
   fixture,
   transactionErrorKey,
@@ -335,5 +335,118 @@ describe("authorization", () => {
 
     const resp = await f.contract.Action(f.ctx, dto);
     expect(resp).toEqual(transactionErrorKey("UNAUTHORIZED"));
+  });
+
+  it("should succeed when quorum is satisfied", async () => {
+    const ContractClass = class extends GalaContract {
+      constructor() {
+        super("TestContract", "1.0.0");
+      }
+
+      public async Action(ctx: GalaChainContext, dto: ChainCallDTO): Promise<void> {}
+    };
+
+    const target = ContractClass.prototype;
+    const propertyKey = "Action";
+    const descriptor = Object.getOwnPropertyDescriptor(target, propertyKey) as PropertyDescriptor;
+
+    GalaTransaction({
+      type: SUBMIT,
+      in: ChainCallDTO,
+      out: "object",
+      enforceUniqueKey: true,
+      verifySignature: true,
+      quorum: 2
+    })(target, propertyKey, descriptor);
+    Object.defineProperty(target, propertyKey, descriptor);
+
+    const user = { ...ChainUser.withRandomKeys("multi"), roles: [UserRole.SUBMIT] };
+    const other = signatures.genKeyPair();
+    const normalized1 = signatures.normalizePublicKey(user.publicKey).toString("base64");
+    const normalized2 = signatures.normalizePublicKey(other.publicKey).toString("base64");
+
+    const f = fixture(ContractClass)
+      .caClientIdentity(anonymousUserId, defaultMsp)
+      .savedKVState(
+        {
+          key: `\u0000GCPK\u0000${user.identityKey}\u0000`,
+          value: JSON.stringify({ publicKey: normalized1, publicKeys: [normalized1, normalized2] })
+        },
+        {
+          key: `\u0000GCUP\u0000${user.ethAddress}\u0000`,
+          value: JSON.stringify({
+            alias: user.identityKey,
+            ethAddress: user.ethAddress,
+            roles: [UserRole.EVALUATE, UserRole.SUBMIT],
+            pubKeyCount: 2,
+            requiredSignatures: 2
+          })
+        }
+      );
+
+    const dto = new ChainCallDTO();
+    dto.uniqueKey = "uniqueKey-quorum-success";
+    dto.sign(user.privateKey);
+    dto.signerPublicKey = other.publicKey;
+    dto.sign(other.privateKey);
+
+    const resp = await f.contract.Action(f.ctx, dto);
+    expect(resp).toEqual(transactionSuccess());
+  });
+
+  it("should fail with duplicate signer keys", async () => {
+    const ContractClass = class extends GalaContract {
+      constructor() {
+        super("TestContract", "1.0.0");
+      }
+
+      public async Action(ctx: GalaChainContext, dto: ChainCallDTO): Promise<void> {}
+    };
+
+    const target = ContractClass.prototype;
+    const propertyKey = "Action";
+    const descriptor = Object.getOwnPropertyDescriptor(target, propertyKey) as PropertyDescriptor;
+
+    GalaTransaction({
+      type: SUBMIT,
+      in: ChainCallDTO,
+      out: "object",
+      enforceUniqueKey: true,
+      verifySignature: true,
+      quorum: 2
+    })(target, propertyKey, descriptor);
+    Object.defineProperty(target, propertyKey, descriptor);
+
+    const user = { ...ChainUser.withRandomKeys("dup"), roles: [UserRole.SUBMIT] };
+    const other = signatures.genKeyPair();
+    const normalized1 = signatures.normalizePublicKey(user.publicKey).toString("base64");
+    const normalized2 = signatures.normalizePublicKey(other.publicKey).toString("base64");
+
+    const f = fixture(ContractClass)
+      .caClientIdentity(anonymousUserId, defaultMsp)
+      .savedKVState(
+        {
+          key: `\u0000GCPK\u0000${user.identityKey}\u0000`,
+          value: JSON.stringify({ publicKey: normalized1, publicKeys: [normalized1, normalized2] })
+        },
+        {
+          key: `\u0000GCUP\u0000${user.ethAddress}\u0000`,
+          value: JSON.stringify({
+            alias: user.identityKey,
+            ethAddress: user.ethAddress,
+            roles: [UserRole.EVALUATE, UserRole.SUBMIT],
+            pubKeyCount: 2,
+            requiredSignatures: 2
+          })
+        }
+      );
+
+    const dto = new ChainCallDTO();
+    dto.uniqueKey = "uniqueKey-quorum-dup";
+    dto.sign(user.privateKey);
+    dto.sign(user.privateKey);
+
+    const resp = await f.contract.Action(f.ctx, dto);
+    expect(resp).toEqual(transactionErrorKey("DUPLICATE_SIGNER_PUBLIC_KEY"));
   });
 });

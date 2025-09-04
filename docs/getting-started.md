@@ -166,6 +166,17 @@ Now you can run integration tests with:
 npm run test:e2e
 ```
 
+#### Register a multisig user
+
+Users may be registered with several public keys and a signature threshold:
+
+```bash
+galachain pk:register-user ./admin.key '{"user":"client|alice","publicKeys":["<pk1>","<pk2>"],"requiredSignatures":2}'
+```
+
+All submit transactions for this user must include signatures from at least two
+different keys.
+
 ### 5. Verify changes in block browser and GraphQL
 
 Navigate to [http://localhost:3010/blocks](http://localhost:3010/blocks) to see our block browser which allows you to see what's saved on your local GalaChain network.

@@ -19,7 +19,8 @@ import {
   ValidationFailedError,
   asValidUserAlias,
   signatures,
-  validateUserRef
+  validateUserRef,
+  SigningScheme
 } from "@gala-chain/api";
 
 import { GalaChainContext } from "../types";
@@ -36,6 +37,8 @@ export async function resolveUserAlias(ctx: GalaChainContext, userRef: string): 
     if (userRef.startsWith("eth|")) {
       return await resolveAliasFromEthAddress(ctx, userRef.slice(4));
     }
+
+    await ensureAliasNotMultisig(ctx, userRef as UserAlias);
 
     return userRef as UserAlias;
   }
@@ -58,4 +61,18 @@ async function resolveAliasFromEthAddress(ctx: GalaChainContext, rawEthAddress: 
   }
   const actualAlias = userProfile?.alias ?? asValidUserAlias(`eth|${ethAddress}`);
   return actualAlias;
+}
+
+async function ensureAliasNotMultisig(ctx: GalaChainContext, alias: UserAlias): Promise<void> {
+  const pk = await PublicKeyService.getPublicKey(ctx, alias);
+  if (pk === undefined) {
+    return;
+  }
+  const address = PublicKeyService.getUserAddress(pk.publicKey, pk.signing as SigningScheme);
+  const userProfile = await PublicKeyService.getUserProfile(ctx, address);
+  if (userProfile?.requiredSignatures !== undefined && userProfile.requiredSignatures > 1) {
+    throw new NotImplementedError("resolveUserAlias is not supported for multisig profiles", {
+      userRef: alias
+    });
+  }
 }

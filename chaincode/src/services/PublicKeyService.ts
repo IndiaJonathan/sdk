@@ -15,6 +15,7 @@
 import {
   ChainCallDTO,
   ChainObject,
+  NotImplementedError,
   PK_INDEX_KEY,
   PublicKey,
   SigningScheme,
@@ -277,13 +278,7 @@ export class PublicKeyService {
     await PublicKeyService.putPublicKey(ctx, publicKeys, userAlias, signing);
 
     // for the new flow, we need to store the user profile separately
-    await PublicKeyService.putUserProfile(
-      ctx,
-      ethAddress,
-      userAlias,
-      signing,
-      publicKeys.length
-    );
+    await PublicKeyService.putUserProfile(ctx, ethAddress, userAlias, signing, publicKeys.length);
 
     return userAlias;
   }
@@ -295,6 +290,12 @@ export class PublicKeyService {
     signing: SigningScheme
   ): Promise<void> {
     const userAlias = ctx.callingUser;
+
+    if (ctx.callingUserProfile.requiredSignatures > 1) {
+      throw new NotImplementedError("UpdatePublicKey is not supported for multisig users", {
+        alias: userAlias
+      });
+    }
 
     // fetch old public key for finding old user profile
     const oldPublicKey = await PublicKeyService.getPublicKey(ctx, ctx.callingUser);

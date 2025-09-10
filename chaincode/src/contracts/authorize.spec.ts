@@ -314,49 +314,51 @@ describe("authorization", () => {
     return ContractClass;
   }
 
-  it("should enforce signature quorum", async () => {
-    const ContractClass = class extends GalaContract {
-      constructor() {
-        super("TestContract", "1.0.0");
-      }
-
-      public async Action(_ctx: GalaChainContext, _dto: ChainCallDTO): Promise<void> {
-        return;
-      }
-    };
-
-    const target = ContractClass.prototype;
-    const propertyKey = "Action";
-    const descriptor = Object.getOwnPropertyDescriptor(target, propertyKey) as PropertyDescriptor;
-
-    GalaTransaction({
-      type: SUBMIT,
-      in: ChainCallDTO,
-      out: "object",
-      enforceUniqueKey: true,
-      verifySignature: true,
-      quorum: 2
-    })(target, propertyKey, descriptor);
-    Object.defineProperty(target, propertyKey, descriptor);
-
-    const user = { ...ChainUser.withRandomKeys("quorum-user"), roles: [UserRole.SUBMIT] };
-    const f = fixture(ContractClass).caClientIdentity(anonymousUserId, defaultMsp).registeredUsers(user);
-
-    const dto = new ChainCallDTO();
-    dto.uniqueKey = "uniqueKey-quorum";
-    dto.sign(user.privateKey);
-
-    const resp = await f.contract.Action(f.ctx, dto);
-    expect(resp).toEqual(transactionErrorKey("UNAUTHORIZED"));
-  });
-
-  it("should accept sufficient quorum signatures", async () => {
+  it("should reject when not enough signatures", async () => {
     class QuorumContract extends GalaContract {
       constructor() {
         super("QuorumContract", "1.0.0");
       }
 
-      @Submit({ in: SubmitCallDTO, out: "object", quorum: 2 })
+      @Submit({ in: SubmitCallDTO, out: "object" })
+      public async Action(_ctx: GalaChainContext, _dto: SubmitCallDTO): Promise<void> {
+        return;
+      }
+    }
+
+    const chaincode = new TestChaincode([QuorumContract, PublicKeyContract]);
+
+    const kp1 = signatures.genKeyPair();
+    const kp2 = signatures.genKeyPair();
+    const alias = "client|quorum" as UserAlias;
+
+    const regDto = await createValidSubmitDTO(RegisterUserDto, {
+      user: alias,
+      publicKeys: [kp1.publicKey, kp2.publicKey]
+    });
+    const regResp = await chaincode.invoke(
+      "PublicKeyContract:RegisterUser",
+      regDto.signed(process.env.DEV_ADMIN_PRIVATE_KEY as string)
+    );
+    expect(regResp).toEqual(transactionSuccess());
+
+    const dto = new SubmitCallDTO();
+    dto.uniqueKey = "uniqueKey-quorum-fail";
+    dto.signerPublicKey = kp1.publicKey;
+    dto.sign(kp1.privateKey);
+
+    chaincode.setCallingUser(alias);
+    const resp = await chaincode.invoke("QuorumContract:Action", dto);
+    expect(resp).toEqual(transactionErrorKey("UNAUTHORIZED"));
+  });
+
+  it("should accept sufficient signatures", async () => {
+    class QuorumContract extends GalaContract {
+      constructor() {
+        super("QuorumContract", "1.0.0");
+      }
+
+      @Submit({ in: SubmitCallDTO, out: "object" })
       public async Action(_ctx: GalaChainContext, _dto: SubmitCallDTO): Promise<void> {
         return;
       }

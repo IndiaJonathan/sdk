@@ -209,7 +209,7 @@ The `ctx.callingUserRoles` property will contain the user's assigned roles.
 
 This way it is possible to get the current user's properties in the chaincode and use them in the business logic.
 
-### Multisignature users and quorum
+### Multisignature users
 
 Users may register more than one public key. A majority of signatures is required to authorize a transaction.
 During registration pass an array of keys:
@@ -233,8 +233,7 @@ dto.sign(sk1);
 dto.sign(sk2); // dto.signatures = [{ signerPublicKey: pk1, signature: "..." }, { signerPublicKey: pk2, signature: "..." }]
 ```
 
-Chaincode enforces the user profile's `requiredSignatures` or an explicit `quorum` specified on
-`@Submit`/`@Evaluate` via the `GalaTransaction` decorator. If a transaction provides fewer unique
+Chaincode enforces the user profile's `requiredSignatures`. If a transaction provides fewer unique
 signatures than required it fails with `UNAUTHORIZED`; duplicate keys are rejected with
 `DUPLICATE_SIGNER_PUBLIC_KEY`.
 

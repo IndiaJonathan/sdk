@@ -290,6 +290,16 @@ export class ChainCallDTO {
   }
 
   public sign(privateKey: string, useDer = false): void {
+    if (!this._originalSignature && this.signature) {
+      const existing = new SignatureDto();
+      existing.signature = this.signature;
+      existing.prefix = this.prefix;
+      existing.signerAddress = this.signerAddress;
+      existing.signerPublicKey = this.signerPublicKey;
+      existing.signing = this.signing;
+      this._originalSignature = instanceToInstance(existing);
+    }
+
     const sdto = new SignatureDto();
     sdto.signerPublicKey = this.signerPublicKey;
     sdto.signerAddress = this.signerAddress;

@@ -312,8 +312,16 @@ export class ChainCallDTO {
       }
     }
 
-    if (this.signing !== SigningScheme.TON) {
-      this.signerPublicKey = signatures.getPublicKey(privateKey);
+    if (this.signing !== SigningScheme.TON && this.signerAddress === undefined) {
+      if (this.signatures?.length) {
+        const lastPublicKey = this.signatures[this.signatures.length - 1]?.signerPublicKey;
+        if (this.signerPublicKey === lastPublicKey || lastPublicKey === undefined) {
+          this.signerPublicKey = undefined;
+        }
+      }
+      if (this.signerPublicKey === undefined) {
+        this.signerPublicKey = signatures.getPublicKey(privateKey);
+      }
     }
 
     const payload = {

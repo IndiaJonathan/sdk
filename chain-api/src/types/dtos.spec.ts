@@ -70,7 +70,9 @@ it("should parse TestDtoWithArray", async () => {
   expect(await getPlainOrError(TestDtoWithArray, valid)).toEqual({ playerIds: ["123"] });
   expect(await getPlainOrError(TestDtoWithArray, invalid1)).toEqual(failedArrayMatcher);
   expect(await getPlainOrError(TestDtoWithArray, invalid2)).toEqual(failedArrayMatcher);
-  expect(await getPlainOrError(TestDtoWithArray, invalid3)).toEqual("Unexpected end of JSON input");
+  await expect(getPlainOrError(TestDtoWithArray, invalid3)).resolves.toMatch(
+    /Unexpected end|Unterminated string/
+  );
 });
 
 it("should parse TestDtoWithBigNumber", async () => {
@@ -195,5 +197,23 @@ describe("ChainCallDTO", () => {
     // Then
     expect(dto.signature).toEqual(expect.stringMatching(/.{50,}/));
     expect(dto.isSignatureValid(pair.publicKey.toString("base64"))).toEqual(true);
+  });
+
+  it("should sign and verify multiple signatures", () => {
+    // Given
+    const first = genKeyPair();
+    const second = genKeyPair();
+    const dto = new TestDto();
+    dto.amounts = [new BigNumber("12.3")];
+
+    // When
+    dto.sign(first.privateKey);
+    dto.sign(second.privateKey);
+
+    // Then
+    expect(dto.signature).toBeUndefined();
+    expect(dto.signatures).toHaveLength(2);
+    expect(dto.isSignatureValid(first.publicKey)).toEqual(true);
+    expect(dto.isSignatureValid(second.publicKey)).toEqual(true);
   });
 });

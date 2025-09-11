@@ -136,6 +136,24 @@ describe("ChainCallDTO", () => {
     expect(dto.isSignatureValid(publicKey)).toEqual(true);
   });
 
+  it("should update signerPublicKey for each signature", () => {
+    const kp1 = genKeyPair();
+    const kp2 = genKeyPair();
+    const dto = new TestDto();
+    dto.amounts = [new BigNumber("12.3")];
+
+    const pk1 = signatures.getPublicKey(kp1.privateKey);
+    const pk2 = signatures.getPublicKey(kp2.privateKey);
+
+    dto.sign(kp1.privateKey);
+    dto.sign(kp2.privateKey);
+
+    expect(dto.signatures).toHaveLength(2);
+    expect(dto.signatures?.[0].signerPublicKey).toEqual(pk1);
+    expect(dto.signatures?.[1].signerPublicKey).toEqual(pk2);
+    expect(dto.signerPublicKey).toEqual(pk2);
+  });
+
   it("should sign and verify signature (edge case - shorter private key with missing trailing 0)", () => {
     // Given
     const privateKey = "e8d506db1e7c8d98dbc6752537939312702962f48e169084a7babbb5c96217f";

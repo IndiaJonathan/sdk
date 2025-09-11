@@ -313,7 +313,9 @@ export class ChainCallDTO {
     }
 
     if (this.signing !== SigningScheme.TON) {
-      this.signerPublicKey = signatures.getPublicKey(privateKey);
+      if (this.signerPublicKey === undefined && this.signerAddress === undefined) {
+        this.signerPublicKey = signatures.getPublicKey(privateKey);
+      }
     }
 
     const payload = {

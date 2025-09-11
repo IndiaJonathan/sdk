@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { Type, instanceToInstance, plainToInstance } from "class-transformer";
+import { Exclude, Type, instanceToInstance, plainToInstance } from "class-transformer";
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -229,6 +229,9 @@ export class ChainCallDTO {
   @Type(() => SignatureDto)
   public signatures?: SignatureDto[];
 
+  @Exclude()
+  private _originalSignature?: SignatureDto;
+
   @JSONSchema({
     description: "Unit timestamp when the DTO expires. If the timestamp is in the past, the DTO is not valid."
   })
@@ -317,15 +320,22 @@ export class ChainCallDTO {
       this.signerAddress = sdto.signerAddress;
       this.prefix = sdto.prefix;
       this.signing = sdto.signing;
+      this._originalSignature = instanceToInstance(sdto);
     } else {
       if (!this.signatures) {
-        const existing = new SignatureDto();
-        existing.signature = this.signature!;
-        existing.prefix = this.prefix;
-        existing.signerAddress = this.signerAddress;
-        existing.signerPublicKey = this.signerPublicKey;
-        existing.signing = this.signing;
+        let existing: SignatureDto;
+        if (this._originalSignature) {
+          existing = this._originalSignature;
+        } else {
+          existing = new SignatureDto();
+          existing.signature = this.signature!;
+          existing.prefix = this.prefix;
+          existing.signerAddress = this.signerAddress;
+          existing.signerPublicKey = this.signerPublicKey;
+          existing.signing = this.signing;
+        }
         this.signatures = [existing];
+        this._originalSignature = undefined;
         this.signature = undefined;
         this.signerPublicKey = undefined;
         this.signerAddress = undefined;

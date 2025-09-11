@@ -114,6 +114,28 @@ const expectedTestDtoSchema = {
       enum: ["ETH", "TON"],
       type: "string"
     },
+    signatures: {
+      description:
+        "Array of signatures for this DTO. Each signature may contain its own signer information and signing scheme.",
+      items: {
+        properties: {
+          prefix: { minLength: 1, type: "string" },
+          signerAddress: {
+            minLength: 1,
+            type: "string"
+          },
+          signerPublicKey: {
+            minLength: 1,
+            type: "string"
+          },
+          signature: { minLength: 1, type: "string" },
+          signing: { enum: ["ETH", "TON"], type: "string" }
+        },
+        required: ["signature"],
+        type: "object"
+      },
+      type: "array"
+    },
     uniqueKey: {
       description:
         "Unique key of the DTO. It is used to prevent double execution of the same transaction on chain. " +

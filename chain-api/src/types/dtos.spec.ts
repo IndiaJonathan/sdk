@@ -19,7 +19,7 @@ import { ec as EC } from "elliptic";
 
 import { SigningScheme, ValidationFailedError, getValidationErrorMessages, signatures } from "../utils";
 import { BigNumberArrayProperty, BigNumberProperty } from "../validators";
-import { ChainCallDTO, ClassConstructor, convertLegacySignatures } from "./dtos";
+import { ChainCallDTO, ClassConstructor, convertLegacySignatures, convertLegacyPublicKeys } from "./dtos";
 
 const getInstanceOrErrorInfo = async <T extends ChainCallDTO>(
   constructor: ClassConstructor<T>,
@@ -258,5 +258,13 @@ describe("ChainCallDTO", () => {
         prefix: undefined
       }
     ]);
+  });
+});
+
+describe("convertLegacyPublicKeys", () => {
+  it("should convert legacy single public key", () => {
+    const dto: { publicKey?: string; publicKeys?: string[] } = { publicKey: "pk" };
+    convertLegacyPublicKeys(dto);
+    expect(dto.publicKeys).toEqual(["pk"]);
   });
 });

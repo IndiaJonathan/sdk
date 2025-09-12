@@ -180,12 +180,13 @@ export async function authenticateSingle(
       (k) => PublicKeyService.getUserAddress(k, scheme) === sig.signerAddress
     );
 
+    const index = dto.signatures?.indexOf(sig) ?? 0;
     if (key) {
-      if (!dto.isSignatureValid(sig, key)) {
+      if (!dto.isSignatureValid(key, index)) {
         throw new PkInvalidSignatureError(profile.alias);
       }
     } else {
-      key = keys.find((k) => dto.isSignatureValid(sig, k));
+      key = keys.find((k) => dto.isSignatureValid(k, index));
       if (!key) {
         throw new PkInvalidSignatureError(profile.alias);
       }
@@ -195,7 +196,8 @@ export async function authenticateSingle(
       scheme === SigningScheme.TON ? key : signatures.getNonCompactHexPublicKey(key);
     return { profile, signedByKey: keyHex };
   } else if (sig.signerPublicKey !== undefined) {
-    if (!dto.isSignatureValid(sig)) {
+    const index = dto.signatures?.indexOf(sig) ?? 0;
+    if (!dto.isSignatureValid(sig.signerPublicKey, index)) {
       const address = PublicKeyService.getUserAddress(sig.signerPublicKey, signing);
       throw new PkInvalidSignatureError(address);
     }

@@ -19,6 +19,7 @@ import {
   IsNotEmpty,
   IsNumber,
   IsOptional,
+  ValidateIf,
   Max,
   Min,
   ValidateNested,
@@ -416,6 +417,13 @@ export function convertLegacySignatures<T extends ChainCallDTO>(dto: T): T {
   return dto;
 }
 
+export function convertLegacyPublicKeys<T extends { publicKey?: string; publicKeys?: string[] }>(dto: T): T {
+  if (!dto.publicKeys && dto.publicKey) {
+    dto.publicKeys = [dto.publicKey];
+  }
+  return dto;
+}
+
 // It just makes uniqueKey required
 export class SubmitCallDTO extends ChainCallDTO {
   @IsNotEmpty()
@@ -618,10 +626,16 @@ export class RegisterUserDto extends SubmitCallDTO {
   /**
    * @description Public secp256k1 keys (compact or non-compact, hex or base64).
    */
+  @JSONSchema({ description: "Public secp256k1 key (compact or non-compact, hex or base64)." })
+  @ValidateIf((o) => !o.publicKeys || o.publicKeys.length === 0)
+  @IsNotEmpty()
+  publicKey?: string;
+
   @JSONSchema({ description: "Public secp256k1 keys (compact or non-compact, hex or base64)." })
+  @ValidateIf((o) => !o.publicKey)
   @IsNotEmpty({ each: true })
   @ArrayMinSize(1)
-  publicKeys: string[];
+  publicKeys?: string[];
 }
 
 /**
@@ -634,10 +648,16 @@ export class RegisterUserDto extends SubmitCallDTO {
   description: `Dto for secure method to save public keys for Eth users. Method is called and signed by Curators`
 })
 export class RegisterEthUserDto extends SubmitCallDTO {
+  @JSONSchema({ description: "Public secp256k1 key (compact or non-compact, hex or base64)." })
+  @ValidateIf((o) => !o.publicKeys || o.publicKeys.length === 0)
+  @IsNotEmpty()
+  publicKey?: string;
+
   @JSONSchema({ description: "Public secp256k1 keys (compact or non-compact, hex or base64)." })
+  @ValidateIf((o) => !o.publicKey)
   @IsNotEmpty({ each: true })
   @ArrayMinSize(1)
-  publicKeys: string[];
+  publicKeys?: string[];
 }
 
 /**
@@ -650,10 +670,16 @@ export class RegisterEthUserDto extends SubmitCallDTO {
   description: `Dto for secure method to save public keys for TON users. Method is called and signed by Curators`
 })
 export class RegisterTonUserDto extends SubmitCallDTO {
+  @JSONSchema({ description: "TON user public key (Ed25519 in base64)." })
+  @ValidateIf((o) => !o.publicKeys || o.publicKeys.length === 0)
+  @IsNotEmpty()
+  publicKey?: string;
+
   @JSONSchema({ description: "TON user public keys (Ed25519 in base64)." })
+  @ValidateIf((o) => !o.publicKey)
   @IsNotEmpty({ each: true })
   @ArrayMinSize(1)
-  publicKeys: string[];
+  publicKeys?: string[];
 }
 
 export class UpdatePublicKeyDto extends SubmitCallDTO {

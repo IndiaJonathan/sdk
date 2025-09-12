@@ -21,6 +21,7 @@ import {
   RegisterTonUserDto,
   RegisterUserDto,
   SigningScheme,
+  convertLegacyPublicKeys,
   UpdatePublicKeyDto,
   UpdateUserRolesDto,
   UserAlias,
@@ -81,16 +82,17 @@ export class PublicKeyContract extends GalaContract {
     ...requireRegistrarAuth
   })
   public async RegisterUser(ctx: GalaChainContext, dto: RegisterUserDto): Promise<string> {
-    if (!dto.user.startsWith("client|")) {
-      const message = `User alias should start with 'client|', but got: ${dto.user}`;
+    const dtoWithKeys = convertLegacyPublicKeys(dto);
+    if (!dtoWithKeys.user.startsWith("client|")) {
+      const message = `User alias should start with 'client|', but got: ${dtoWithKeys.user}`;
       throw new ValidationFailedError(message);
     }
-    PublicKeyContract.ensurePublicKeys(dto.publicKeys);
+    PublicKeyContract.ensurePublicKeys(dtoWithKeys.publicKeys);
 
-    const userAlias = dto.user;
-    const signing = dto.signing ?? SigningScheme.ETH;
+    const userAlias = dtoWithKeys.user;
+    const signing = dtoWithKeys.signing ?? SigningScheme.ETH;
 
-    return PublicKeyService.registerUser(ctx, dto.publicKeys, userAlias, signing);
+    return PublicKeyService.registerUser(ctx, dtoWithKeys.publicKeys, userAlias, signing);
   }
 
   @Submit({
@@ -100,11 +102,12 @@ export class PublicKeyContract extends GalaContract {
     ...requireRegistrarAuth
   })
   public async RegisterEthUser(ctx: GalaChainContext, dto: RegisterEthUserDto): Promise<string> {
-    PublicKeyContract.ensurePublicKeys(dto.publicKeys);
-    const ethAddress = PublicKeyService.getUserAddress(dto.publicKeys[0], SigningScheme.ETH);
+    const dtoWithKeys = convertLegacyPublicKeys(dto);
+    PublicKeyContract.ensurePublicKeys(dtoWithKeys.publicKeys);
+    const ethAddress = PublicKeyService.getUserAddress(dtoWithKeys.publicKeys[0], SigningScheme.ETH);
     const userAlias = `eth|${ethAddress}` as UserAlias;
 
-    return PublicKeyService.registerUser(ctx, dto.publicKeys, userAlias, SigningScheme.ETH);
+    return PublicKeyService.registerUser(ctx, dtoWithKeys.publicKeys, userAlias, SigningScheme.ETH);
   }
 
   @Submit({
@@ -114,11 +117,12 @@ export class PublicKeyContract extends GalaContract {
     ...requireRegistrarAuth
   })
   public async RegisterTonUser(ctx: GalaChainContext, dto: RegisterTonUserDto): Promise<string> {
-    PublicKeyContract.ensurePublicKeys(dto.publicKeys);
-    const address = PublicKeyService.getUserAddress(dto.publicKeys[0], SigningScheme.TON);
+    const dtoWithKeys = convertLegacyPublicKeys(dto);
+    PublicKeyContract.ensurePublicKeys(dtoWithKeys.publicKeys);
+    const address = PublicKeyService.getUserAddress(dtoWithKeys.publicKeys[0], SigningScheme.TON);
     const userAlias = `ton|${address}` as UserAlias;
 
-    return PublicKeyService.registerUser(ctx, dto.publicKeys, userAlias, SigningScheme.TON);
+    return PublicKeyService.registerUser(ctx, dtoWithKeys.publicKeys, userAlias, SigningScheme.TON);
   }
 
   @Submit({

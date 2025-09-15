@@ -228,6 +228,16 @@ export class PublicKeyService {
     return undefined;
   }
 
+  private static getPrimaryPublicKeyOrThrow(publicKey: PublicKey, userId: string): string {
+    const primaryKey = publicKey.publicKey ?? publicKey.publicKeys?.[0];
+
+    if (primaryKey === undefined) {
+      throw new PkMissingError(userId);
+    }
+
+    return primaryKey;
+  }
+
   /**
    * Verifies if the data is properly signed. Throws exception instead.
    */
@@ -268,17 +278,19 @@ export class PublicKeyService {
 
     // If we are migrating a legacy user to new flow, the public key should match
     if (currPublicKey !== undefined) {
+      const currentPrimaryKey = PublicKeyService.getPrimaryPublicKeyOrThrow(currPublicKey, userAlias);
       const nonCompactCurrPubKey =
         signing !== SigningScheme.TON
-          ? signatures.getNonCompactHexPublicKey(currPublicKey.publicKey!)
-          : currPublicKey.publicKey!;
+          ? signatures.getNonCompactHexPublicKey(currentPrimaryKey)
+          : currentPrimaryKey;
       if (nonCompactCurrPubKey !== providedPk) {
         throw new PkMismatchError(userAlias);
       }
     }
 
-    const derivedAddresses = publicKeys.map((pk) => PublicKeyService.getUserAddress(pk, signing));
-    const uniqueAddresses = Array.from(new Set(derivedAddresses));
+    const uniqueAddresses = Array.from(
+      new Set(publicKeys.map((pk) => PublicKeyService.getUserAddress(pk, signing)))
+    );
 
     for (const address of uniqueAddresses) {
       const existingUserProfile = await PublicKeyService.getUserProfile(ctx, address);
@@ -310,8 +322,10 @@ export class PublicKeyService {
       throw new PkNotFoundError(userAlias);
     }
 
+    const oldPrimaryPublicKey = PublicKeyService.getPrimaryPublicKeyOrThrow(oldPublicKey, userAlias);
+
     // need to fetch userProfile from old address
-    const oldAddress = PublicKeyService.getUserAddress(oldPublicKey.publicKey!, signing);
+    const oldAddress = PublicKeyService.getUserAddress(oldPrimaryPublicKey, signing);
     const userProfile = await PublicKeyService.getUserProfile(ctx, oldAddress);
 
     // Note: we don't throw an error if userProfile is undefined in order to support legacy users with unsaved profiles
@@ -327,7 +341,7 @@ export class PublicKeyService {
     }
 
     // update Public Key, and add user profile under new eth address
-    const oldKeys = oldPublicKey.publicKeys;
+    const oldKeys = oldPublicKey.publicKeys ?? [oldPrimaryPublicKey];
     const updatedKeys = [newPkHex, ...oldKeys.slice(1)];
     await PublicKeyService.putPublicKey(ctx, updatedKeys, userAlias, signing);
     await PublicKeyService.putUserProfile(
@@ -346,10 +360,8 @@ export class PublicKeyService {
       throw new PkNotFoundError(user);
     }
 
-    const address = PublicKeyService.getUserAddress(
-      publicKey.publicKey!,
-      publicKey.signing ?? SigningScheme.ETH
-    );
+    const primaryPublicKey = PublicKeyService.getPrimaryPublicKeyOrThrow(publicKey, user);
+    const address = PublicKeyService.getUserAddress(primaryPublicKey, publicKey.signing ?? SigningScheme.ETH);
     const profile = await PublicKeyService.getUserProfile(ctx, address);
 
     if (profile === undefined) {

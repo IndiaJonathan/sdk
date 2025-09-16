@@ -75,7 +75,7 @@ describe("authorizeFee", () => {
     const resDto = plainToInstance(FeeAuthorizationResDto, {
       authority: dto.authority,
       quantity: dto.quantity,
-      authorization: dto.signed(users.testUser1.privateKey, false).serialize(),
+      authorization: dto.serialize(),
       feeAuthorizationKey: feeAuthorizationKey,
       created: ctx.txUnixTime,
       txId: txId

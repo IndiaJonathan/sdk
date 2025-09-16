@@ -49,7 +49,9 @@ it("should CreateTokenClass", async () => {
 
   const expectedInstance = currency.tokenInstance();
   const expectedClass = currency.tokenClass((defaults) => {
-    const { tokenClass, signature, uniqueKey, ...fromDto } = dto;
+    const { tokenClass, signature, signatures, uniqueKey, ...fromDto } = JSON.parse(
+      dto.serialize()
+    ) as Record<string, unknown> & { tokenClass: Record<string, unknown> };
     const authorities = dto.authorities as UserAlias[];
     const missingInDto = { contractAddress: undefined, metadataAddress: undefined, rarity: undefined };
     return { ...defaults, ...fromDto, authorities, ...missingInDto, ...tokenClass };

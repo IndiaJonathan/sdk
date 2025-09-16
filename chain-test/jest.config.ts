@@ -25,6 +25,7 @@ export default {
   displayName: "chain-test",
   preset: "../jest.preset.js",
   testEnvironment: "node",
+  setupFiles: ["<rootDir>/jest.setup.ts"],
   transform: {
     "^.+\\.ts$": ["ts-jest", { tsconfig: "<rootDir>/tsconfig.spec.json" }]
   },

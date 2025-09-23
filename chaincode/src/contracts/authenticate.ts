@@ -23,6 +23,7 @@ import {
   convertLegacySignatures,
   signatures
 } from "@gala-chain/api";
+import { instanceToPlain } from "class-transformer";
 import * as protos from "fabric-protos";
 
 import { PkInvalidSignatureError, PublicKeyService } from "../services";
@@ -255,14 +256,12 @@ function recoverPublicKey(
     return undefined;
   }
 
-  const payload: Record<string, unknown> = {
-    ...dto,
-    signature: undefined,
-    signatures: undefined,
-    signerPublicKey: undefined,
-    signerAddress: undefined,
-    prefix: undefined
-  };
+  const payload = instanceToPlain(dto) as Record<string, unknown>;
+  payload.signature = undefined;
+  payload.signatures = undefined;
+  payload.signerPublicKey = undefined;
+  payload.signerAddress = undefined;
+  payload.prefix = undefined;
 
   if (scheme !== undefined) {
     payload.signing = scheme;

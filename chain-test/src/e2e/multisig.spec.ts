@@ -15,6 +15,7 @@
 import {
   GetMyProfileDto,
   RegisterUserDto,
+  SigningScheme,
   UserAlias,
   createValidSubmitDTO,
   signatures
@@ -42,7 +43,8 @@ describe("multisig e2e", () => {
 
     const regDto = await createValidSubmitDTO(RegisterUserDto, {
       user: alias,
-      publicKeys: [kp1.publicKey, kp2.publicKey]
+      publicKeys: [kp1.publicKey, kp2.publicKey],
+      signing: SigningScheme.ETH
     });
     const regResp = await client.pk.RegisterUser(regDto.signed(client.pk.privateKey));
     expect(regResp).toEqual(transactionSuccess());

@@ -28,6 +28,8 @@ import path from "path";
 
 import { TestChaincode } from "../unit";
 
+import { seedDefaultMockState } from "./mockState";
+
 /**
  * Mocked chaincode client implementation for testing.
  *
@@ -145,6 +147,7 @@ export class MockedChaincodeClientBuilder implements ChainClientBuilder {
         throw new Error(`Contract ${config.contract} not found in ${this.mockedChaincodeDir}`);
       }
       const state = getOrCreateState(config.channel, config.chaincode);
+      seedDefaultMockState(state);
       return new TestChaincode([contract], state, {}, this.adminId, this.orgMsp);
     });
     return new MockedChaincodeClient(this, chaincode, config, this.orgMsp, this.adminId);
